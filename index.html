@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>아나블레포 출석부</title>
-  <!-- v1.0.5 roster-denominator-fixed: 재적/현황/출석률 이름+배지 한 줄 정렬 -->
+  <!-- v1.1.0 firebase-sync: Google 로그인 + Firestore 공동 저장 연결 -->
   <style>
     :root{
       --bg:#f4f7fb;
@@ -149,6 +149,15 @@
     .backup-info-box .stat-label{font-size:12px;color:var(--muted);font-weight:800}
     .backup-info-box .stat-value{font-size:20px;font-weight:950;margin-top:4px}
     .backup-warning{background:#fff7ed;color:#9a3412;border:1px solid #fed7aa;border-radius:14px;padding:12px;margin-top:12px;font-size:12px;font-weight:800;line-height:1.5}
+    .cloud-panel{margin-top:14px;border:1px solid var(--line);border-radius:16px;background:#f8fafc;padding:12px}
+    .cloud-row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+    .cloud-title{font-size:14px;font-weight:950;color:var(--text)}
+    .cloud-sub{font-size:12px;color:var(--muted);font-weight:800;line-height:1.5;margin-top:4px}
+    .cloud-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+    .cloud-dot{display:inline-block;width:9px;height:9px;border-radius:999px;background:#94a3b8;margin-right:6px;vertical-align:middle}
+    .cloud-dot.on{background:#22c55e}.cloud-dot.warn{background:#f59e0b}.cloud-dot.off{background:#94a3b8}
+    .btn.cloud{background:#111827}.btn.cloud-out{background:#eef2f7;color:#111827}
+    @media(max-width:420px){.cloud-actions{grid-template-columns:1fr}}
     .file-hidden{display:none}
     .btn.danger{background:#dc2626;color:#fff}
     .btn.danger:hover{filter:brightness(.95)}
@@ -366,6 +375,21 @@
           <h2 class="title">설정 / 백업</h2>
           <p class="sub">현재 휴대폰 브라우저에 저장된 등록 명단과 출석 기록을 파일로 백업하거나, 저장해둔 백업 파일을 다시 불러올 수 있습니다.</p>
           <div id="backupSummary" class="backup-info"></div>
+          <div class="cloud-panel" id="cloudPanel">
+            <div class="cloud-row">
+              <div>
+                <div class="cloud-title"><span id="cloudDot" class="cloud-dot off"></span>Firebase 공동 저장</div>
+                <div class="cloud-sub" id="cloudStatusText">Google 로그인 후 여러 기기에서 같은 출석부를 사용할 수 있습니다.</div>
+              </div>
+            </div>
+            <div class="cloud-actions">
+              <button class="btn cloud" id="firebaseLoginBtn" type="button">Google 로그인</button>
+              <button class="btn cloud-out" id="firebaseLogoutBtn" type="button">로그아웃</button>
+              <button class="btn ghost" id="cloudUploadBtn" type="button">현재 데이터 클라우드 저장</button>
+              <button class="btn ghost" id="cloudReloadBtn" type="button">클라우드 다시 불러오기</button>
+            </div>
+            <div class="hint">허용된 이메일만 읽기/쓰기 가능하도록 Firestore 규칙을 설정해야 합니다.</div>
+          </div>
           <div class="backup-actions">
             <button class="btn" id="exportBackupBtn" type="button">데이터 백업하기</button>
             <button class="btn ghost" id="importBackupBtn" type="button">백업 불러오기</button>
@@ -373,7 +397,7 @@
             <button class="btn danger" id="clearAllDataBtn" type="button">전체 데이터 초기화</button>
           </div>
           <div class="backup-warning">
-            GitHub에는 여기서 내려받은 JSON 백업 파일을 직접 업로드하면 됩니다. 자동 GitHub 백업은 토큰 노출 위험이 있어 넣지 않았습니다.
+            GitHub에는 앱 코드만 올리고, JSON 백업 파일은 올리지 마세요. Firebase 연결 후에도 중요한 시점에는 파일 백업을 따로 받아두면 안전합니다.
           </div>
         </div>
       </section>
@@ -418,12 +442,37 @@
     </div>
   </div>
 
-  <script>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js";
+    import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-auth.js";
+    import { getFirestore, doc, getDoc, setDoc, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCa6HUZJstFB8R2Nq92D5vfVWe0kaeg6nA",
+      authDomain: "anablepo-attendance.firebaseapp.com",
+      projectId: "anablepo-attendance",
+      storageBucket: "anablepo-attendance.firebasestorage.app",
+      messagingSenderId: "885611224862",
+      appId: "1:885611224862:web:b066e1109672143f1d730f"
+    };
+
+    const firebaseApp = initializeApp(firebaseConfig);
+    const firebaseAuth = getAuth(firebaseApp);
+    const firebaseProvider = new GoogleAuthProvider();
+    const firebaseDb = getFirestore(firebaseApp);
+    const CLOUD_DOC_REF = doc(firebaseDb, "attendanceApps", "anablepo");
+
     const STORAGE_KEY = 'attendanceAppV1';
     const BACKUP_META_KEY = 'attendanceAppBackupMetaV1';
     const now = new Date();
     let state = loadState();
     let backupMeta = loadBackupMeta();
+    let currentUser = null;
+    let cloudUnsubscribe = null;
+    let applyingCloudState = false;
+    let cloudSaveTimer = null;
+    let cloudLastSavedAt = '';
+    let cloudLastLoadedAt = '';
     let currentPage = 'register';
     let selectedStatsMonth = null;
     let selectedHistoryMonth = null;
@@ -456,7 +505,144 @@
       const pad=n=>String(n).padStart(2,'0');
       return `${d.getFullYear()}.${pad(d.getMonth()+1)}.${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
     }
-    function saveState(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); renderAll(); }
+    function saveState(){
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      renderAll();
+      scheduleCloudSave();
+    }
+    function cloudHasLocalData(){
+      return !!((state.people && state.people.length) || (state.sessions && Object.keys(state.sessions).length));
+    }
+    function renderCloudStatus(){
+      const dot=document.getElementById('cloudDot');
+      const textEl=document.getElementById('cloudStatusText');
+      const loginBtn=document.getElementById('firebaseLoginBtn');
+      const logoutBtn=document.getElementById('firebaseLogoutBtn');
+      const uploadBtn=document.getElementById('cloudUploadBtn');
+      const reloadBtn=document.getElementById('cloudReloadBtn');
+      if(!dot || !textEl) return;
+      if(currentUser){
+        dot.className='cloud-dot on';
+        const loaded = cloudLastLoadedAt ? ` · 불러옴 ${formatDateTimeText(cloudLastLoadedAt)}` : '';
+        const saved = cloudLastSavedAt ? ` · 저장 ${formatDateTimeText(cloudLastSavedAt)}` : '';
+        textEl.textContent = `${currentUser.email} 계정으로 연결됨${loaded}${saved}`;
+        if(loginBtn) loginBtn.style.display='none';
+        if(logoutBtn) logoutBtn.style.display='block';
+        if(uploadBtn) uploadBtn.disabled=false;
+        if(reloadBtn) reloadBtn.disabled=false;
+      }else{
+        dot.className='cloud-dot off';
+        textEl.textContent='Google 로그인 후 여러 기기에서 같은 출석부를 사용할 수 있습니다.';
+        if(loginBtn) loginBtn.style.display='block';
+        if(logoutBtn) logoutBtn.style.display='none';
+        if(uploadBtn) uploadBtn.disabled=true;
+        if(reloadBtn) reloadBtn.disabled=true;
+      }
+    }
+    function cloudPayload(){
+      return {
+        appName:'anablepo-attendance',
+        appVersion:'firebase-v1',
+        state: JSON.parse(JSON.stringify(state || {people:[],sessions:{}})),
+        backupMeta: JSON.parse(JSON.stringify(backupMeta || {lastExportedAt:'',lastImportedAt:''})),
+        updatedAt: serverTimestamp(),
+        updatedBy: currentUser ? currentUser.email : ''
+      };
+    }
+    function scheduleCloudSave(){
+      if(applyingCloudState || !currentUser) return;
+      clearTimeout(cloudSaveTimer);
+      cloudSaveTimer=setTimeout(()=>saveCloudNow(false),700);
+    }
+    async function saveCloudNow(showMessage=true){
+      if(!currentUser){ if(showMessage) toast('먼저 Google 로그인해 주세요.'); return; }
+      try{
+        await setDoc(CLOUD_DOC_REF, cloudPayload(), {merge:true});
+        cloudLastSavedAt=new Date().toISOString();
+        renderCloudStatus();
+        if(showMessage) toast('클라우드에 저장했습니다.');
+      }catch(e){
+        console.error(e);
+        if(showMessage) toast('클라우드 저장에 실패했습니다.');
+      }
+    }
+    function applyCloudDocument(data){
+      if(!data) return;
+      const nextState = normalizeImportedState(data.state || data);
+      if(!nextState) return;
+      applyingCloudState=true;
+      state=nextState;
+      backupMeta = data.backupMeta ? { lastExportedAt:data.backupMeta.lastExportedAt || '', lastImportedAt:data.backupMeta.lastImportedAt || '' } : backupMeta;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      saveBackupMeta();
+      selectedStatsMonth=null;
+      selectedHistoryMonth=null;
+      cloudLastLoadedAt=new Date().toISOString();
+      renderAll();
+      applyingCloudState=false;
+    }
+    async function reloadCloudNow(showMessage=true){
+      if(!currentUser){ if(showMessage) toast('먼저 Google 로그인해 주세요.'); return; }
+      try{
+        const snap=await getDoc(CLOUD_DOC_REF);
+        if(snap.exists()){
+          applyCloudDocument(snap.data());
+          if(showMessage) toast('클라우드 데이터를 불러왔습니다.');
+        }else{
+          if(showMessage) toast('아직 클라우드 데이터가 없습니다.');
+        }
+      }catch(e){
+        console.error(e);
+        if(showMessage) toast('클라우드 불러오기에 실패했습니다.');
+      }
+    }
+    async function loginFirebase(){
+      try{
+        await signInWithPopup(firebaseAuth, firebaseProvider);
+      }catch(e){
+        console.warn(e);
+        try{ await signInWithRedirect(firebaseAuth, firebaseProvider); }
+        catch(err){ console.error(err); toast('Google 로그인에 실패했습니다.'); }
+      }
+    }
+    async function logoutFirebase(){
+      try{ await signOut(firebaseAuth); toast('로그아웃했습니다.'); }
+      catch(e){ console.error(e); toast('로그아웃에 실패했습니다.'); }
+    }
+    function startCloudListener(){
+      if(cloudUnsubscribe) cloudUnsubscribe();
+      cloudUnsubscribe = onSnapshot(CLOUD_DOC_REF, (snap)=>{
+        if(!currentUser) return;
+        if(snap.exists()) applyCloudDocument(snap.data());
+      }, (err)=>{
+        console.error(err);
+        toast('클라우드 연결을 확인해 주세요.');
+      });
+    }
+    async function initializeFirebaseAuth(){
+      try{ await getRedirectResult(firebaseAuth); }catch(e){ console.warn(e); }
+      onAuthStateChanged(firebaseAuth, async (user)=>{
+        currentUser=user;
+        renderCloudStatus();
+        if(cloudUnsubscribe){ cloudUnsubscribe(); cloudUnsubscribe=null; }
+        if(user){
+          try{
+            const snap=await getDoc(CLOUD_DOC_REF);
+            if(snap.exists()){
+              applyCloudDocument(snap.data());
+            }else if(cloudHasLocalData()){
+              if(confirm('현재 기기에 저장된 출석부 데이터를 Firebase 클라우드에 처음 저장할까요?')) await saveCloudNow(true);
+            }
+            startCloudListener();
+          }catch(e){
+            console.error(e);
+            toast('Firebase 권한 또는 규칙을 확인해 주세요.');
+          }
+        }else{
+          renderAll();
+        }
+      });
+    }
     function getBackupCounts(){
       const sessionKeys=Object.keys(state.sessions || {});
       const presentTotal=sessionKeys.reduce((sum,key)=>{
@@ -550,6 +736,7 @@
           selectedStatsMonth=null;
           selectedHistoryMonth=null;
           renderAll();
+          scheduleCloudSave();
           toast('백업을 불러왔습니다.');
         }catch(e){
           toast('백업 파일을 읽지 못했습니다.');
@@ -567,6 +754,7 @@
       selectedHistoryMonth=null;
       resetForm();
       renderAll();
+      scheduleCloudSave();
       toast('전체 데이터가 초기화되었습니다.');
     }
 
@@ -715,6 +903,7 @@
       if(currentPage==='rate') renderRate(false);
       if(currentPage==='stats') renderStats();
       if(currentPage==='backup') renderBackupSummary();
+      renderCloudStatus();
     }
     function renderBadges(p){
       let html='<div class="badges">';
@@ -1649,6 +1838,10 @@
     document.getElementById('importBackupBtn').addEventListener('click',()=>document.getElementById('backupFileInput').click());
     document.getElementById('backupFileInput').addEventListener('change',e=>{ importBackupFile(e.target.files[0]); e.target.value=''; });
     document.getElementById('clearAllDataBtn').addEventListener('click',clearAllData);
+    document.getElementById('firebaseLoginBtn')?.addEventListener('click',loginFirebase);
+    document.getElementById('firebaseLogoutBtn')?.addEventListener('click',logoutFirebase);
+    document.getElementById('cloudUploadBtn')?.addEventListener('click',()=>saveCloudNow(true));
+    document.getElementById('cloudReloadBtn')?.addEventListener('click',()=>reloadCloudNow(true));
 
 
 
@@ -1672,6 +1865,7 @@
     document.getElementById('newRegisteredAt').value=todayISO();
     toggleNewDateField(false);
     renderAll();
+    initializeFirebaseAuth();
   </script>
 </body>
 </html>
