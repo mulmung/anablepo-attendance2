@@ -1,0 +1,1677 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>아나블레포 출석부</title>
+  <!-- v1.0.5 roster-denominator-fixed: 재적/현황/출석률 이름+배지 한 줄 정렬 -->
+  <style>
+    :root{
+      --bg:#f4f7fb;
+      --card:#ffffff;
+      --text:#172033;
+      --muted:#7b8496;
+      --line:#e6eaf2;
+      --primary:#2563eb;
+      --primary-dark:#1d4ed8;
+      --green:#16a34a;
+      --red:#dc2626;
+      --yellow:#f59e0b;
+      --soft-blue:#eaf2ff;
+      --soft-green:#eaf8ef;
+      --soft-red:#fff1f2;
+      --online:#2563eb;
+      --onsite:#16a34a;
+      --absent:#94a3b8;
+      --shadow:0 10px 28px rgba(15, 23, 42, .08);
+      --radius:18px;
+    }
+    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+    body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR",Segoe UI,sans-serif;}
+    .app{max-width:760px;margin:0 auto;min-height:100vh;padding-bottom:88px;}
+    header{position:sticky;top:0;z-index:20;background:rgba(244,247,251,.94);backdrop-filter:blur(12px);padding:14px 16px 10px;border-bottom:1px solid rgba(230,234,242,.75)}
+    .top-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+    h1{font-size:21px;margin:0;font-weight:900;letter-spacing:-.5px}
+    .total-pill{display:inline-flex;align-items:center;justify-content:center;background:#111827;color:#fff;border-radius:999px;padding:10px 14px;min-height:40px;font-size:13px;font-weight:800;line-height:1;white-space:nowrap;text-align:center}
+    .tabs{display:flex;gap:8px;overflow-x:auto;padding-top:12px;scrollbar-width:none}
+    .tabs::-webkit-scrollbar{display:none}
+    .tab{border:1px solid var(--line);background:#fff;color:#596276;border-radius:999px;padding:9px 12px;font-size:13px;font-weight:800;white-space:nowrap;box-shadow:0 2px 8px rgba(15,23,42,.04)}
+    .tab.active{background:var(--primary);border-color:var(--primary);color:#fff}
+    main{padding:16px}
+    .page{display:none}.page.active{display:block}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px;margin-bottom:14px}
+    .title{font-size:17px;font-weight:900;margin:0 0 12px;letter-spacing:-.4px}
+    .sub{font-size:13px;color:var(--muted);line-height:1.45;margin:-4px 0 12px}
+    label.label{display:block;font-size:13px;color:#4b5563;font-weight:800;margin:12px 0 7px}
+    input,select,textarea{width:100%;border:1px solid var(--line);background:#fff;border-radius:13px;padding:12px 13px;font-size:16px;outline:none;color:var(--text);font-family:inherit;line-height:1.35}
+    textarea{min-height:50px;resize:none;overflow:hidden}
+    input:focus,select:focus,textarea:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(37,99,235,.12)}
+    .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .choice-row{display:flex;gap:8px;flex-wrap:wrap}
+    .choice{position:relative;display:inline-flex;align-items:center;justify-content:center;min-height:42px;padding:0 14px;border:1px solid var(--line);border-radius:999px;background:#fff;font-size:14px;font-weight:900;color:#596276}
+    .choice input{position:absolute;opacity:0;width:1px;height:1px}
+    .choice:has(input:checked){background:var(--soft-blue);border-color:var(--primary);color:var(--primary)}
+    .btn{border:0;border-radius:13px;padding:12px 14px;font-size:15px;font-weight:900;color:#fff;background:var(--primary);width:100%}
+    .btn:active{transform:scale(.99)}
+    .btn.secondary{background:#111827}.btn.green{background:var(--green)}.btn.red{background:var(--red)}.btn.ghost{background:#eef2f7;color:#1f2937}.btn.small{width:auto;padding:8px 10px;font-size:13px;border-radius:10px}
+    .hint{font-size:12px;color:var(--muted);line-height:1.5;margin-top:8px}
+    .warning-hint{margin-top:8px;padding:10px 12px;border-radius:12px;border:1px solid #fde68a;background:#fffbeb;color:#92400e;font-size:12px;font-weight:800;line-height:1.5}
+    .backup-meta-row{margin-top:12px;padding:12px 14px;border-radius:14px;background:#f8fafc;border:1px solid var(--line);color:var(--muted);font-size:12px;font-weight:800;line-height:1.7}
+    .split-list{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .gender-box{border:1px solid var(--line);border-radius:16px;background:#fff;overflow:hidden}
+    .gender-head{position:static;background:#f8fafc;border-bottom:1px solid var(--line);padding:11px 12px;font-weight:900;display:flex;justify-content:space-between;align-items:center;font-size:14px;z-index:5}
+    .gender-head .count{font-size:12px;color:var(--muted)}
+    .person{padding:12px;border-bottom:1px solid var(--line);display:flex;align-items:flex-start;justify-content:space-between;gap:8px;min-height:56px}
+    .person:last-child{border-bottom:0}
+    .person-name{font-weight:900;font-size:15px;line-height:1.25;word-break:break-all}
+    .person-note{width:100%;margin-top:5px;font-size:12px;line-height:1.35;color:var(--muted);font-weight:700;word-break:break-all}
+    .person-main{display:flex;align-items:center;gap:6px;min-width:0;flex:1;flex-wrap:wrap}
+    .person-main .person-name{line-height:1.1}
+    .person-main .badges{margin-top:0}
+    .badges{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:5px}
+    .badge{display:inline-block;width:10px;height:10px;min-width:10px;min-height:10px;aspect-ratio:1/1;flex:0 0 auto;border-radius:999px;padding:0;font-size:0;line-height:0;vertical-align:middle;box-sizing:border-box;box-shadow:inset 0 0 0 1px rgba(15,23,42,.06)}
+    .badge.new{background:#22c55e}.badge.married{background:#a855f7}.badge.freshman{background:#f59e0b}.badge.gender-male{background:#2563eb}.badge.gender-female{background:#ef4444}
+    .legend{display:flex;flex-wrap:wrap;gap:14px;align-items:center;margin-top:10px;color:var(--muted);font-size:12px;font-weight:800}
+    .legend-item{display:inline-flex;align-items:center;gap:6px}
+    .legend .badge{width:9px;height:9px;flex:0 0 auto}
+    .filter-row{display:flex;gap:7px;flex-wrap:wrap;margin:12px 0 12px}
+    .filter-stack{display:flex;flex-direction:column;gap:8px;margin:12px 0 14px}
+    .filter-group{display:flex;gap:7px;flex-wrap:wrap;align-items:center}
+    .filter-group-label{font-size:11px;font-weight:900;color:var(--muted);min-width:42px;line-height:1}
+    .filter-btn{border:1px solid var(--line);background:#fff;color:#596276;border-radius:999px;padding:8px 11px;font-size:12px;font-weight:900;white-space:nowrap}
+    .filter-btn.active{background:var(--primary);border-color:var(--primary);color:#fff}
+    .roster-list{border:1px solid var(--line);border-radius:16px;background:#fff;overflow:hidden;margin-top:12px}
+    .roster-list-head{display:flex;align-items:center;justify-content:space-between;padding:11px 12px;background:#f8fafc;border-bottom:1px solid var(--line);font-size:14px;font-weight:900}
+    .roster-list-head .count{font-size:12px;color:var(--muted)}
+    .roster-person .roster-top{align-items:center}
+    .roster-person .person-main{align-items:center;gap:6px;flex-wrap:wrap}
+    .roster-person .person-name{white-space:normal;word-break:keep-all;line-height:1.25}
+    .actions{display:flex;gap:5px;flex-shrink:0}
+    .icon-btn{border:0;border-radius:9px;padding:7px 8px;font-weight:900;font-size:12px;background:#eef2f7;color:#111827}.icon-btn.del{background:var(--soft-red);color:var(--red)}.icon-btn.green{background:#dcfce7;color:#15803d}.icon-btn.blue{background:#dbeafe;color:#1d4ed8}
+    .roster-person{display:block}.roster-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}.person-detail{display:none;margin-top:10px;padding:11px;border:1px solid var(--line);border-radius:13px;background:#f8fafc}.person-detail.open{display:block}.detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.detail-item{background:#fff;border:1px solid var(--line);border-radius:11px;padding:8px}.detail-label{font-size:11px;color:var(--muted);font-weight:900;margin-bottom:3px}.detail-value{font-size:13px;color:var(--text);font-weight:900;line-height:1.35;word-break:break-all}.detail-actions{display:flex;gap:8px;margin-top:10px}.detail-actions .icon-btn{flex:1;padding:9px 8px}.status-chip{display:inline-flex;align-items:center;border-radius:999px;padding:4px 8px;font-size:12px;font-weight:900}.status-chip.training{background:#dcfce7;color:#15803d}.status-chip.graduated{background:#f3e8ff;color:#7e22ce}.status-chip.none{background:#e2e8f0;color:#64748b}.status-chip.active{background:#dcfce7;color:#15803d}.status-chip.moved{background:#dbeafe;color:#1d4ed8}.status-chip.left{background:#fee2e2;color:#b91c1c}
+    .empty{padding:18px;text-align:center;color:var(--muted);font-weight:800;font-size:13px}
+    .session-bar{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+    .check-summary{display:flex;align-items:center;justify-content:space-between;gap:12px;background:#111827;color:#fff;border-radius:16px;padding:14px;margin-bottom:12px}
+    .check-summary strong{font-size:24px}.check-summary span{font-size:14px;color:#d1d5db;font-weight:800}
+    .check-card{padding:13px 14px}
+    .check-card .title{margin-bottom:10px}
+    .check-card .label{margin:9px 0 6px}
+    .check-card input{padding:10px 12px}
+    .check-card select{padding:10px 10px}
+    .check-summary.compact{padding:11px 14px;border-radius:15px}
+    .check-summary.compact .summary-line{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+    .check-summary.compact span{font-size:15px}
+    .check-summary.compact strong{font-size:22px}
+    .attendance-person{display:flex;align-items:center;justify-content:flex-start;gap:6px;min-height:42px;padding:9px 10px}
+    .attendance-person .person-name{font-size:14px;line-height:1;flex:0 1 auto}
+    .attendance-person .badges{display:inline-flex;margin:0;gap:4px;align-items:center}
+    .attendance-person .badge{width:10px;height:10px;min-width:10px;min-height:10px;aspect-ratio:1/1;padding:0;font-size:0;line-height:0;flex:0 0 auto}
+    .attendance-person{cursor:pointer;transition:.15s;background:#fff;justify-content:space-between}
+    .attendance-person.onsite{background:var(--soft-green)}
+    .attendance-person.onsite .person-name{color:var(--green)}
+    .attendance-person.online{background:var(--soft-blue)}
+    .attendance-person.online .person-name{color:var(--primary)}
+    .attendance-person.absent .person-name{color:#b7bfce}
+    .status-btn{border:0;border-radius:999px;padding:6px 9px;font-size:11px;font-weight:900;white-space:nowrap;min-width:54px;text-align:center;line-height:1;background:#e2e8f0;color:#475569;flex-shrink:0}
+    .status-btn.onsite{background:#dcfce7;color:#15803d}.status-btn.online{background:#dbeafe;color:#1d4ed8}.status-btn.absent{background:#e2e8f0;color:#64748b}
+    .summary-wrap{display:flex;flex-direction:column;gap:4px}.status-breakdown{font-size:12px;color:#d1d5db;font-weight:900;line-height:1.2}
+    .rate-status-line{margin-top:5px;color:var(--muted);font-size:11.5px;font-weight:900;line-height:1.2}
+    .session-card{padding:14px;border:1px solid var(--line);border-radius:16px;margin-bottom:10px;background:#fff}
+    .session-line{display:flex;align-items:center;justify-content:space-between;gap:10px}
+    .session-title{font-weight:900}.session-meta{font-size:12px;color:var(--muted);font-weight:800;margin-top:4px}
+    .detail{display:none;margin-top:12px;border-top:1px dashed var(--line);padding-top:10px}.detail.open{display:block}
+    .toggle-row{display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line);padding:10px 0;gap:8px}.toggle-row:last-child{border-bottom:0}
+    .switch{position:relative;width:38px;height:22px;flex-shrink:0}.switch input{opacity:0;width:0;height:0}.slider{position:absolute;cursor:pointer;inset:0;background:#cbd5e1;border-radius:999px;transition:.2s}.slider:before{content:"";position:absolute;height:16px;width:16px;left:3px;top:3px;background:white;border-radius:50%;transition:.2s;box-shadow:0 2px 5px rgba(0,0,0,.2)}.switch input:checked + .slider{background:var(--green)}.switch input:checked + .slider:before{transform:translateX(16px)}
+    .rate-table{border:1px solid var(--line);border-radius:16px;overflow:hidden;background:#fff}.rate-row{display:grid;grid-template-columns:1.1fr .7fr .8fr;border-bottom:1px solid var(--line);align-items:center}.rate-row:last-child{border-bottom:0}.rate-row>div{padding:11px 10px;font-size:13px}.rate-head{background:#f8fafc;font-weight:900;color:#4b5563}.bar-wrap{height:8px;background:#e5e7eb;border-radius:999px;overflow:hidden;margin-top:5px}.bar{height:100%;background:var(--primary);width:0%}
+    .detail-split{margin-top:8px}.history-person{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:6px;padding:9px 10px;border-bottom:1px solid var(--line)}.history-person:last-child{border-bottom:0}.history-person strong{font-size:14px}.history-person .person-main{flex-wrap:nowrap;gap:4px;overflow:hidden}.history-person .person-main .person-name{white-space:nowrap;flex-shrink:0}.history-person .person-main .badges{margin-top:0;flex-wrap:nowrap;gap:3px}.history-person .badge{width:9px;height:9px;min-width:9px;min-height:9px;aspect-ratio:1/1;padding:0;font-size:0;line-height:0;flex:0 0 auto}.rate-person{padding:11px 12px;border-bottom:1px solid var(--line)}.rate-person:last-child{border-bottom:0}.rate-person-top{display:flex;align-items:center;justify-content:space-between;gap:8px}.rate-person-name{font-weight:900;font-size:14px;line-height:1.1}.rate-person-info{display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-width:0}.rate-person-info .badges{margin-top:0}.rate-person-stat{font-size:12px;color:var(--muted);font-weight:900;white-space:nowrap}.rate-percent{margin-top:7px;font-size:13px;font-weight:900}.rate-percent-row{display:flex;align-items:center;gap:8px}.rate-percent-row strong{min-width:42px}.inline-search{margin-top:10px}.check-search-row{display:grid;grid-template-columns:1fr auto;gap:8px;margin:10px 0 12px 0}.check-search-row input{margin:0}.btn.clear-search{background:#eef2f7;color:#111827;box-shadow:none;padding:0 14px;min-width:70px;border-radius:14px;font-size:13px}
+    .toast{position:fixed;left:50%;bottom:86px;transform:translateX(-50%) translateY(20px);background:#111827;color:white;padding:12px 14px;border-radius:999px;font-size:13px;font-weight:900;opacity:0;pointer-events:none;transition:.25s;z-index:100;max-width:calc(100vw - 32px);white-space:nowrap}.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+    .stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:10px}
+    .stat-box{background:#f8fafc;border:1px solid var(--line);border-radius:14px;padding:11px 10px}
+    .stat-label{font-size:11px;color:var(--muted);font-weight:900;margin-bottom:5px}.stat-value{font-size:18px;font-weight:950;letter-spacing:-.3px}
+    .line-chart-card{padding:16px}.mini-title{font-size:15px;font-weight:950;margin:8px 0 4px;color:var(--text)}.chart-wrap{position:relative;width:100%;height:210px;margin-top:8px;overflow:hidden;border:1px solid var(--line);border-radius:16px;background:linear-gradient(#fff,#fbfdff)}
+    .chart-svg{width:100%;height:100%;display:block}.chart-axis-labels{display:grid;gap:0;margin-top:8px;font-size:10.5px;color:var(--muted);font-weight:900}.chart-empty{height:160px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-weight:900;text-align:center;font-size:13px;background:#f8fafc;border:1px dashed var(--line);border-radius:16px;margin-top:8px}
+    .month-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.history-month-grid{grid-template-columns:repeat(3,1fr)}.history-week-card{box-shadow:none;margin-bottom:9px}.history-week-card:last-child{margin-bottom:0}.month-card{appearance:none;text-align:left;background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);padding:12px;min-height:104px;display:block;cursor:pointer}.month-card.active{border-color:rgba(37,99,235,.55);box-shadow:0 0 0 3px rgba(37,99,235,.10), var(--shadow)}.month-title{font-weight:950;font-size:16px}.month-rate{font-weight:950;color:var(--primary);font-size:18px;margin-top:5px}.month-meta{margin-top:6px;color:var(--muted);font-size:11.5px;font-weight:900;line-height:1.35}.month-detail-panel{display:none;margin-top:12px}.month-detail-panel.open{display:block}.week-card{border:1px solid var(--line);border-radius:14px;padding:11px 12px;margin-top:8px;background:#f8fafc}.week-title{display:flex;justify-content:space-between;gap:8px;font-weight:950}.week-meta{margin-top:5px;color:var(--muted);font-size:12px;font-weight:900;line-height:1.45}.no-record{color:#94a3b8}.chart-legend{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:9px;color:var(--muted);font-size:12px;font-weight:900}.chart-legend .dot{width:9px;height:9px;border-radius:50%;display:inline-block;background:var(--primary)}.chart-legend .dot.total{background:#111827}.chart-legend .dot.present{background:#16a34a}.chart-legend .dot.absent{background:#94a3b8}.chart-legend .dot.rate{background:#2563eb}.metric-tabs{display:flex;gap:8px;overflow-x:auto;margin:12px 0 10px;padding-bottom:2px}.metric-tab{border:1px solid var(--line);background:#fff;color:var(--muted);border-radius:999px;padding:10px 13px;font-size:13px;font-weight:950;white-space:nowrap;cursor:pointer}.metric-tab.active{background:var(--primary);border-color:var(--primary);color:#fff}.new-date-wrap{margin-top:8px}.new-date-wrap.hidden{display:none}.membership-start-wrap{margin-top:8px}.membership-start-wrap.hidden{display:none}.member-basis-wrap{margin-top:10px}.member-basis-help{margin-top:7px;color:var(--muted);font-size:12px;font-weight:800;line-height:1.45}.chart-legend .dot.newflow{background:#22c55e}
+    @media(max-width:520px){main{padding:12px}.card{padding:14px;border-radius:16px}.split-list{gap:8px}.person{padding:9px 9px;display:flex;align-items:center;min-height:42px}.roster-person{display:block}.roster-person .person-main{display:flex;align-items:center;gap:5px;flex-wrap:wrap}.person-name{font-size:14px}.person-main .badge{width:9px;height:9px;min-width:9px;min-height:9px;padding:0;flex:0 0 auto}.actions{margin-top:8px}.roster-person .actions{margin-top:0}.roster-person .person-main{gap:5px}.roster-person .person-name{font-size:15px}.actions .icon-btn{flex:1}.gender-head,.roster-list-head{font-size:13px}.filter-row{gap:6px}.filter-stack{gap:7px}.filter-group{gap:6px}.filter-group-label{width:100%;font-size:10.5px;margin-bottom:-2px}.filter-btn{padding:7px 9px;font-size:11.5px}.session-bar{grid-template-columns:1fr 1fr 1fr}.session-bar select{font-size:14px;padding:11px 8px}.rate-row{grid-template-columns:1fr .72fr .8fr}.rate-row>div{font-size:12px;padding:10px 8px}.check-card{padding:12px}.check-card .title{font-size:16px;margin-bottom:9px}.check-card input{font-size:15px;padding:9px 11px}.check-search-row{gap:7px;margin-bottom:10px}.btn.clear-search{min-width:62px;padding:0 10px;font-size:12px;border-radius:12px}.check-card select{font-size:14px;padding:9px 7px}.check-summary.compact{padding:10px 12px;margin-bottom:10px}.check-summary.compact span{font-size:14px}.check-summary.compact strong{font-size:21px}.attendance-person.person{display:flex;padding:8px 10px;min-height:40px}.attendance-person .person-name{font-size:13.5px}.attendance-person .badges{margin:0}.attendance-person .badge{width:9px;height:9px;min-width:9px;min-height:9px;padding:0;flex:0 0 auto}.history-person{padding:8px 9px;grid-template-columns:minmax(0,1fr) auto;gap:5px}.history-person strong,.rate-person-name{font-size:13.5px}.history-person .person-main{gap:4px;flex-wrap:nowrap}.history-person .badge{width:8px;height:8px;min-width:8px;min-height:8px;padding:0;flex:0 0 auto}.switch{width:34px;height:20px}.slider:before{height:14px;width:14px}.switch input:checked + .slider:before{transform:translateX(14px)}.status-btn{min-width:46px;padding:5px 7px;font-size:10.5px}.status-breakdown{font-size:11.5px}.rate-person{padding:10px}.rate-person-stat{font-size:11.5px}.stats-grid{grid-template-columns:repeat(2,1fr)}.chart-wrap{height:190px}.stat-value{font-size:17px}.month-grid{grid-template-columns:repeat(3,1fr);gap:8px}.month-card{padding:10px;min-height:94px;border-radius:15px}.month-title{font-size:14px}.month-rate{font-size:16px;margin-top:4px}.month-meta{font-size:10.5px;line-height:1.28}.chart-axis-labels{font-size:9.5px}}
+  
+
+    .attendance-modal-overlay{position:fixed;inset:0;background:rgba(15,23,42,.42);z-index:80;display:none;align-items:flex-end;justify-content:center;padding:14px}
+    .attendance-modal-overlay.open{display:flex}
+    .attendance-modal{width:100%;max-width:720px;max-height:92vh;overflow:auto;background:#fff;border:1px solid var(--line);border-radius:22px;box-shadow:0 22px 55px rgba(15,23,42,.22);padding:16px}
+    .modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:12px}.modal-title{font-size:18px;font-weight:950;letter-spacing:-.4px}.modal-sub{font-size:12px;color:var(--muted);font-weight:800;margin-top:4px;line-height:1.45}.modal-close{border:0;background:#eef2f7;color:#111827;border-radius:999px;width:34px;height:34px;font-weight:950;font-size:18px;flex:0 0 auto}
+    .calendar-toolbar{display:grid;grid-template-columns:1fr;gap:8px;margin-bottom:10px}.calendar-toolbar select{font-size:14px;padding:10px 11px;border-radius:12px}.calendar-half-tabs{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0 10px}.calendar-half-tabs .filter-btn{justify-content:center}.calendar-status-legend{display:flex;gap:12px;flex-wrap:wrap;color:var(--muted);font-size:12px;font-weight:900;margin:8px 0 12px}.calendar-status-legend span{display:inline-flex;align-items:center;gap:5px}.cal-dot{width:9px;height:9px;border-radius:50%;display:inline-block;background:#cbd5e1}.cal-dot.onsite{background:var(--onsite)}.cal-dot.online{background:var(--online)}.cal-dot.absent{background:var(--absent)}
+    .calendar-warning{background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;border-radius:14px;padding:11px 12px;font-size:12px;font-weight:850;line-height:1.45;margin-bottom:10px}.calendar-warning.hidden{display:none}.calendar-edit-bar{display:flex;gap:8px;margin:10px 0 12px}.calendar-edit-bar .btn{flex:1}.calendar-grid{border:1px solid var(--line);border-radius:16px;overflow:hidden;background:#fff}.calendar-weekdays,.calendar-days{display:grid;grid-template-columns:.72fr repeat(6,1fr)}.calendar-weekdays div{background:#f8fafc;border-bottom:1px solid var(--line);border-right:1px solid var(--line);padding:9px 2px;text-align:center;color:var(--muted);font-size:12px;font-weight:950}.calendar-weekdays div:last-child{border-right:0}.calendar-day{min-height:46px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);background:#fff;padding:5px 3px;text-align:center;color:#111827;position:relative;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:3px}.calendar-day:nth-child(7n){border-right:0}.calendar-week-label{background:#f8fafc;color:#64748b;font-size:11px;font-weight:950}.calendar-day.blank{background:#fbfdff;color:#cbd5e1}.calendar-day.editable{cursor:pointer}.calendar-day-num{font-size:11px;font-weight:950;line-height:1}.calendar-day-status{font-size:10px;font-weight:950;border-radius:999px;padding:2px 5px;text-align:center;background:#eef2f7;color:#64748b;white-space:nowrap;min-width:24px}.calendar-day.onsite{background:#ecfdf5}.calendar-day.onsite .calendar-day-status{background:#dcfce7;color:#15803d}.calendar-day.online{background:#eff6ff}.calendar-day.online .calendar-day-status{background:#dbeafe;color:#1d4ed8}.calendar-day.absent{background:#f8fafc}.calendar-day.absent .calendar-day-status{background:#e2e8f0;color:#64748b}.calendar-note{font-size:12px;color:var(--muted);font-weight:800;line-height:1.5;margin-top:10px}.calendar-month-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:10px 0}.calendar-month-summary .stat-box{padding:9px}.calendar-month-summary .stat-value{font-size:16px}.calendar-month-summary .stat-label{font-size:10.5px}
+    @media(max-width:520px){.attendance-modal-overlay{padding:0;align-items:flex-end}.attendance-modal{border-radius:22px 22px 0 0;max-height:90vh;padding:14px}.calendar-weekdays div{font-size:10.5px;padding:8px 1px}.calendar-day{min-height:42px;padding:4px 2px}.calendar-day-num{font-size:10.5px}.calendar-day-status{font-size:9px;padding:2px 4px;min-width:20px}.calendar-month-summary{grid-template-columns:repeat(4,1fr);gap:6px}.calendar-edit-bar{gap:7px}}
+
+    .backup-actions{display:grid;grid-template-columns:1fr;gap:10px;margin-top:14px}
+    .backup-info{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:12px}
+    .backup-info-box{background:#f8fafc;border:1px solid var(--line);border-radius:14px;padding:12px}
+    .backup-info-box .stat-label{font-size:12px;color:var(--muted);font-weight:800}
+    .backup-info-box .stat-value{font-size:20px;font-weight:950;margin-top:4px}
+    .backup-warning{background:#fff7ed;color:#9a3412;border:1px solid #fed7aa;border-radius:14px;padding:12px;margin-top:12px;font-size:12px;font-weight:800;line-height:1.5}
+    .file-hidden{display:none}
+    .btn.danger{background:#dc2626;color:#fff}
+    .btn.danger:hover{filter:brightness(.95)}
+    @media(max-width:520px){.backup-info{grid-template-columns:1fr 1fr}.backup-info-box{padding:10px}.backup-info-box .stat-value{font-size:18px}}
+
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div class="top-row">
+        <h1>아나블레포 출석부</h1>
+        <div class="total-pill">총 재적 <span id="topTotal">0</span>명</div>
+      </div>
+      <nav class="tabs" id="tabs">
+        <button class="tab active" data-page="register">등록</button>
+        <button class="tab" data-page="roster">재적</button>
+        <button class="tab" data-page="check">출석 체크</button>
+        <button class="tab" data-page="history">전체 출석 현황</button>
+        <button class="tab" data-page="rate">기간 출석률</button>
+        <button class="tab" data-page="stats">출석 통계</button>
+        <button class="tab" data-page="backup">설정 / 백업</button>
+      </nav>
+    </header>
+
+    <main>
+      <section id="register" class="page active">
+        <div class="card">
+          <h2 class="title" id="formTitle">이름 등록</h2>
+          <p class="sub">남/여는 하나만 선택되고, 신입·새신자·기혼자는 함께 선택할 수 있습니다.</p>
+          <input type="hidden" id="editId" />
+          <label class="label" for="nameInput">이름</label>
+          <input id="nameInput" placeholder="예: 홍길동" autocomplete="off" />
+          <label class="label">남여 구분</label>
+          <div class="choice-row">
+            <label class="choice"><input type="radio" name="gender" value="male">남</label>
+            <label class="choice"><input type="radio" name="gender" value="female">여</label>
+          </div>
+          <label class="label">추가 구분</label>
+          <div class="choice-row">
+            <label class="choice"><input type="checkbox" id="isFreshman">신입</label>
+            <label class="choice"><input type="checkbox" id="isNew">새신자</label>
+            <label class="choice"><input type="checkbox" id="isMarried">기혼자</label>
+          </div>
+          <div class="member-basis-wrap">
+            <label class="label">재적 기준</label>
+            <div class="choice-row">
+              <label class="choice"><input type="radio" name="membershipBasis" value="existing" checked>기존 재적 인원</label>
+              <label class="choice"><input type="radio" name="membershipBasis" value="new">신규 등록 인원</label>
+            </div>
+            <div class="member-basis-help">기존 재적 인원은 올해 1월 1일부터, 신규 등록 인원은 아래 신규 등록일자부터 출석률 계산에 포함됩니다.</div>
+            <div class="warning-hint">재적 기준을 수정하면 기간 출석률과 출석 통계 계산 기준이 달라질 수 있습니다.</div>
+          </div>
+          <div id="membershipStartWrap" class="membership-start-wrap hidden">
+            <label class="label" for="membershipStartAtInput">신규 등록일자</label>
+            <input id="membershipStartAtInput" type="date" />
+            <div class="hint">기간 출석률은 이 날짜 이후의 주차부터 계산됩니다.</div>
+          </div>
+          <div id="newDateWrap" class="new-date-wrap hidden">
+            <label class="label" for="newRegisteredAt">새신자 등록일자</label>
+            <input id="newRegisteredAt" type="date" />
+            <div class="hint">새신자 유입 그래프는 이 등록일자를 기준으로 계산됩니다.</div>
+          </div>
+          <label class="label" for="noteInput">특이사항</label>
+          <input id="noteInput" type="text" placeholder="예: 연락 필요, 새가족반 안내 완료 등" maxlength="120">
+          <div class="hint">간단한 메모용입니다. 최대 120자까지 입력할 수 있습니다.</div>
+          <div style="height:14px"></div>
+          <div class="grid-2">
+            <button class="btn" id="savePersonBtn" type="button" onclick="savePersonFromForm(event)">등록하기</button>
+            <button class="btn ghost" id="resetFormBtn" type="button">초기화</button>
+          </div>
+          <div class="hint">같은 이름은 등록할 수 있지만, 헷갈리지 않게 필요하면 이름 뒤에 숫자나 구분을 붙여주세요.</div>
+        </div>
+      </section>
+
+      <section id="roster" class="page">
+        <div class="card">
+          <h2 class="title">재적 명단</h2>
+          <div class="legend"><span class="legend-item"><span class="badge gender-male"></span> 남자</span><span class="legend-item"><span class="badge gender-female"></span> 여자</span><span class="legend-item"><span class="badge freshman"></span> 신입</span><span class="legend-item"><span class="badge new"></span> 새신자</span><span class="legend-item"><span class="badge married"></span> 기혼자</span></div>
+          <div class="filter-stack" id="rosterFilterRow">
+            <div class="filter-group" data-filter-group="gender">
+              <span class="filter-group-label">성별</span>
+              <button class="filter-btn active" type="button" data-roster-gender="all">전체</button>
+              <button class="filter-btn" type="button" data-roster-gender="male">남자</button>
+              <button class="filter-btn" type="button" data-roster-gender="female">여자</button>
+            </div>
+            <div class="filter-group" data-filter-group="status">
+              <span class="filter-group-label">구분</span>
+              <button class="filter-btn" type="button" data-roster-status="freshman">신입</button>
+              <button class="filter-btn" type="button" data-roster-status="new">새신자</button>
+              <button class="filter-btn" type="button" data-roster-status="married">기혼자</button>
+              <button class="filter-btn" type="button" data-roster-status="completed">수료자</button>
+            </div>
+            <div class="filter-group" data-filter-group="membership">
+              <span class="filter-group-label">소속</span>
+              <button class="filter-btn active" type="button" data-roster-membership="active">재적</button>
+              <button class="filter-btn" type="button" data-roster-membership="moved">이동</button>
+              <button class="filter-btn" type="button" data-roster-membership="left">이탈</button>
+            </div>
+          </div>
+          <div class="check-search-row"><input id="rosterSearch" placeholder="이름 또는 초성 검색 예: 홍길동, ㅎㄱㄷ" autocomplete="off" /><button class="btn clear-search" id="clearRosterSearchBtn" type="button">초기화</button></div>
+        </div>
+        <div class="roster-list">
+          <div class="roster-list-head"><span id="rosterListTitle">전체 재적</span><span class="count" id="rosterListCount">0명</span></div>
+          <div id="rosterList"></div>
+        </div>
+      </section>
+
+      <section id="check" class="page">
+        <div class="card check-card">
+          <h2 class="title">출석 체크</h2>
+          <div class="legend"><span class="legend-item"><span class="badge gender-male"></span> 남자</span><span class="legend-item"><span class="badge gender-female"></span> 여자</span><span class="legend-item"><span class="badge freshman"></span> 신입</span><span class="legend-item"><span class="badge new"></span> 새신자</span><span class="legend-item"><span class="badge married"></span> 기혼자</span></div>
+          <div class="session-bar">
+            <select id="checkYear"></select>
+            <select id="checkMonth"></select>
+            <select id="checkWeek"></select>
+          </div>
+        </div>
+        <div class="check-summary compact">
+          <div class="summary-wrap"><div class="summary-line"><span>현재 주차 출석</span><strong><span id="presentCount">0</span>/<span id="checkTotal">0</span>명</strong></div><div class="status-breakdown" id="checkBreakdown">현장 0 · 온라인 0</div></div>
+          <button class="btn small green" id="saveAttendanceBtn">저장</button>
+        </div>
+        <div class="check-search-row">
+          <input id="checkSearch" placeholder="이름 또는 초성 검색" autocomplete="off" />
+          <button class="btn clear-search" id="clearCheckSearchBtn" type="button">초기화</button>
+        </div>
+        <div class="split-list">
+          <div class="gender-box">
+            <div class="gender-head">남</div>
+            <div id="maleCheck"></div>
+          </div>
+          <div class="gender-box">
+            <div class="gender-head">여</div>
+            <div id="femaleCheck"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="history" class="page">
+        <div class="card">
+          <h2 class="title">전체 출석 현황</h2>
+          <p class="sub">월을 선택하면 아래에서 해당 월의 주차별 출석 현황을 확인하고 수정할 수 있습니다.</p>
+          <div class="legend"><span class="legend-item"><span class="badge gender-male"></span> 남자</span><span class="legend-item"><span class="badge gender-female"></span> 여자</span><span class="legend-item"><span class="badge freshman"></span> 신입</span><span class="legend-item"><span class="badge new"></span> 새신자</span><span class="legend-item"><span class="badge married"></span> 기혼자</span></div>
+          <label class="label" for="historyYear">연도 선택</label>
+          <select id="historyYear"></select>
+          <div style="height:12px"></div>
+          <div id="historyMonthGrid" class="month-grid history-month-grid"></div>
+          <div class="check-search-row"><input id="historySearch" placeholder="이름 또는 초성 검색" autocomplete="off" /><button class="btn clear-search" id="clearHistorySearchBtn" type="button">초기화</button></div>
+        </div>
+        <div id="historyList"></div>
+      </section>
+
+      <section id="rate" class="page">
+        <div class="card">
+          <h2 class="title">기간 출석률</h2>
+          <p class="sub">선택한 시작 주차부터 종료 주차까지 저장된 출석 기록을 기준으로 계산합니다.</p>
+          <div class="legend"><span class="legend-item"><span class="badge gender-male"></span> 남자</span><span class="legend-item"><span class="badge gender-female"></span> 여자</span><span class="legend-item"><span class="badge freshman"></span> 신입</span><span class="legend-item"><span class="badge new"></span> 새신자</span><span class="legend-item"><span class="badge married"></span> 기혼자</span></div>
+          <label class="label">시작 주차</label>
+          <div class="session-bar">
+            <select id="rateStartYear"></select>
+            <select id="rateStartMonth"></select>
+            <select id="rateStartWeek"></select>
+          </div>
+          <label class="label">종료 주차</label>
+          <div class="session-bar">
+            <select id="rateEndYear"></select>
+            <select id="rateEndMonth"></select>
+            <select id="rateEndWeek"></select>
+          </div>
+          <div style="height:12px"></div>
+          <button class="btn" id="calcRateBtn">출석률 계산</button>
+          <div class="filter-stack" id="rateFilterRow" style="margin-top:14px">
+            <div class="filter-group" data-filter-group="gender">
+              <span class="filter-group-label">성별</span>
+              <button class="filter-btn active" type="button" data-rate-gender="all">전체</button>
+              <button class="filter-btn" type="button" data-rate-gender="male">남자</button>
+              <button class="filter-btn" type="button" data-rate-gender="female">여자</button>
+            </div>
+            <div class="filter-group" data-filter-group="status">
+              <span class="filter-group-label">구분</span>
+              <button class="filter-btn" type="button" data-rate-status="freshman">신입</button>
+              <button class="filter-btn" type="button" data-rate-status="new">새신자</button>
+              <button class="filter-btn" type="button" data-rate-status="married">기혼자</button>
+              <button class="filter-btn" type="button" data-rate-status="completed">수료자</button>
+            </div>
+            <div class="filter-group" data-filter-group="membership">
+              <span class="filter-group-label">소속</span>
+              <button class="filter-btn active" type="button" data-rate-membership="active">재적</button>
+              <button class="filter-btn" type="button" data-rate-membership="moved">이동</button>
+              <button class="filter-btn" type="button" data-rate-membership="left">이탈</button>
+            </div>
+          </div>
+          <div class="filter-row" id="rateSortRow" style="margin-top:4px">
+            <button class="filter-btn active" type="button" data-rate-sort="name">ㄱㄴㄷ순</button>
+            <button class="filter-btn" type="button" data-rate-sort="desc">출석률 높은순</button>
+            <button class="filter-btn" type="button" data-rate-sort="asc">출석률 낮은순</button>
+          </div>
+          <div class="check-search-row"><input id="rateSearch" placeholder="이름 또는 초성 검색" autocomplete="off" /><button class="btn clear-search" id="clearRateSearchBtn" type="button">초기화</button></div>
+        </div>
+        <div id="rateResult"></div>
+      </section>
+
+      <section id="stats" class="page">
+        <div class="card stats-head-card">
+          <h2 class="title">출석 통계</h2>
+          <p class="sub">선택한 연도의 월별 출석 흐름과 월별 주차 상세를 선 그래프로 확인합니다.</p>
+          <label class="label" for="statsYear">연도 선택</label>
+          <select id="statsYear"></select>
+        </div>
+        <div id="statsResult"></div>
+      </section>
+
+      <section id="backup" class="page">
+        <div class="card">
+          <h2 class="title">설정 / 백업</h2>
+          <p class="sub">현재 휴대폰 브라우저에 저장된 등록 명단과 출석 기록을 파일로 백업하거나, 저장해둔 백업 파일을 다시 불러올 수 있습니다.</p>
+          <div id="backupSummary" class="backup-info"></div>
+          <div class="backup-actions">
+            <button class="btn" id="exportBackupBtn" type="button">데이터 백업하기</button>
+            <button class="btn ghost" id="importBackupBtn" type="button">백업 불러오기</button>
+            <input id="backupFileInput" class="file-hidden" type="file" accept="application/json,.json" />
+            <button class="btn danger" id="clearAllDataBtn" type="button">전체 데이터 초기화</button>
+          </div>
+          <div class="backup-warning">
+            GitHub에는 여기서 내려받은 JSON 백업 파일을 직접 업로드하면 됩니다. 자동 GitHub 백업은 토큰 노출 위험이 있어 넣지 않았습니다.
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+  <div class="toast" id="toast"></div>
+
+
+  <div id="attendanceCalendarModal" class="attendance-modal-overlay" aria-hidden="true">
+    <div class="attendance-modal" role="dialog" aria-modal="true" aria-labelledby="calendarPersonTitle">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:10px">
+        <div>
+          <h2 id="calendarPersonTitle" class="title" style="margin-bottom:4px">출석일자</h2>
+          <p id="calendarPersonSub" class="sub" style="margin:0">개인 출석 달력</p>
+        </div>
+        <button id="closeCalendarBtn" class="icon-btn" type="button" style="min-width:42px">닫기</button>
+      </div>
+      <div class="calendar-toolbar">
+        <select id="calendarYear"></select>
+      </div>
+      <div class="calendar-half-tabs">
+        <button id="calendarFirstHalfBtn" class="filter-btn active" type="button">상반기 1~6월</button>
+        <button id="calendarSecondHalfBtn" class="filter-btn" type="button">하반기 7~12월</button>
+      </div>
+      <div class="calendar-status-legend">
+        <span><i class="cal-dot onsite"></i>현장</span>
+        <span><i class="cal-dot online"></i>온라인</span>
+        <span><i class="cal-dot absent"></i>미출석</span>
+        <span><i class="cal-dot"></i>기록 없음</span>
+      </div>
+      <div id="calendarWarning" class="calendar-warning hidden">수정 모드입니다. 기존 출석 기록이 변경될 수 있으니 엑셀 기록과 비교하여 정확히 입력해 주세요.</div>
+      <div id="calendarMonthSummary" class="calendar-month-summary"></div>
+      <div class="calendar-edit-bar">
+        <button id="calendarEditBtn" class="btn ghost" type="button">수정하기</button>
+        <button id="calendarCloseBottomBtn" class="btn ghost" type="button">닫기</button>
+      </div>
+      <div class="calendar-grid">
+        <div id="calendarMonthHeader" class="calendar-weekdays"></div>
+        <div id="calendarDays" class="calendar-days"></div>
+      </div>
+      <p class="calendar-note">일요일 출석만 표시합니다. 칸을 선택하면 해당 월/주차 출석 기록에 반영됩니다. 수정 모드에서만 변경할 수 있습니다.</p>
+    </div>
+  </div>
+
+  <script>
+    const STORAGE_KEY = 'attendanceAppV1';
+    const BACKUP_META_KEY = 'attendanceAppBackupMetaV1';
+    const now = new Date();
+    let state = loadState();
+    let backupMeta = loadBackupMeta();
+    let currentPage = 'register';
+    let selectedStatsMonth = null;
+    let selectedHistoryMonth = null;
+    let selectedStatsMetric = 'rate';
+
+    function loadState(){
+      try{
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if(raw) return JSON.parse(raw);
+      }catch(e){}
+      return { people: [], sessions: {} };
+    }
+    function loadBackupMeta(){
+      try{
+        const raw = localStorage.getItem(BACKUP_META_KEY);
+        if(raw){
+          const parsed = JSON.parse(raw);
+          return { lastExportedAt: parsed.lastExportedAt || '', lastImportedAt: parsed.lastImportedAt || '' };
+        }
+      }catch(e){}
+      return { lastExportedAt:'', lastImportedAt:'' };
+    }
+    function saveBackupMeta(){
+      localStorage.setItem(BACKUP_META_KEY, JSON.stringify(backupMeta || { lastExportedAt:'', lastImportedAt:'' }));
+    }
+    function formatDateTimeText(dateStr){
+      if(!dateStr) return '없음';
+      const d=new Date(dateStr);
+      if(Number.isNaN(d.getTime())) return String(dateStr);
+      const pad=n=>String(n).padStart(2,'0');
+      return `${d.getFullYear()}.${pad(d.getMonth()+1)}.${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    }
+    function saveState(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); renderAll(); }
+    function getBackupCounts(){
+      const sessionKeys=Object.keys(state.sessions || {});
+      const presentTotal=sessionKeys.reduce((sum,key)=>{
+        const s=state.sessions[key];
+        ensureSessionAttendance(s);
+        return sum + ((s && s.presentIds) ? s.presentIds.length : 0);
+      },0);
+      return { people: activePeople().length, sessions: sessionKeys.length, presentTotal };
+    }
+    function renderBackupSummary(){
+      const box=document.getElementById('backupSummary');
+      if(!box) return;
+      const c=getBackupCounts();
+      box.innerHTML=`<div class="backup-info-box"><div class="stat-label">등록 인원</div><div class="stat-value">${c.people}명</div></div><div class="backup-info-box"><div class="stat-label">저장 주차</div><div class="stat-value">${c.sessions}개</div></div><div class="backup-info-box"><div class="stat-label">누적 출석</div><div class="stat-value">${c.presentTotal}회</div></div><div class="backup-info-box"><div class="stat-label">저장 방식</div><div class="stat-value">파일</div></div><div class="backup-meta-row">마지막 백업: ${formatDateTimeText(backupMeta.lastExportedAt)}<br>마지막 불러오기: ${formatDateTimeText(backupMeta.lastImportedAt)}</div>`;
+    }
+    function makeBackupFileName(){
+      const d=new Date();
+      const pad=n=>String(n).padStart(2,'0');
+      return `anablepo-attendance-backup-${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}.json`;
+    }
+    function exportBackup(){
+      const backup={
+        app:'anablepo-attendance',
+        version:4,
+        exportedAt:new Date().toISOString(),
+        storageKey:STORAGE_KEY,
+        data:state
+      };
+      const blob=new Blob([JSON.stringify(backup,null,2)],{type:'application/json;charset=utf-8'});
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement('a');
+      a.href=url;
+      a.download=makeBackupFileName();
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      backupMeta.lastExportedAt = new Date().toISOString();
+      saveBackupMeta();
+      renderBackupSummary();
+      toast('백업 파일을 만들었습니다.');
+    }
+    function normalizeImportedState(imported){
+      const data = imported && imported.data && Array.isArray(imported.data.people) ? imported.data : imported;
+      if(!data || !Array.isArray(data.people) || !data.sessions || typeof data.sessions !== 'object') return null;
+      const normalized={ people:data.people, sessions:data.sessions };
+      normalized.people=normalized.people.map(p=>({
+        id:p.id || uid(),
+        name:String(p.name || '').trim(),
+        gender:p.gender==='female' ? 'female' : 'male',
+        note:String(p.note || '').trim(),
+        isFreshman:!!p.isFreshman,
+        freshmanYear:Number(p.freshmanYear || 0),
+        isNew:!!p.isNew,
+        isMarried:!!p.isMarried,
+        newRegisteredAt:p.newRegisteredAt || '',
+        newGraduatedAt:p.newGraduatedAt || '',
+        membershipStatus:p.membershipStatus || 'active',
+        membershipChangedAt:p.membershipChangedAt || '',
+        membershipReason:p.membershipReason || '',
+        membershipNote:p.membershipNote || '',
+        membershipStartAt:p.membershipStartAt || p.rosterStartAt || '',
+        membershipBasis:p.membershipBasis || '',
+        createdAt:p.createdAt || ''
+      })).filter(p=>p.name);
+      Object.values(normalized.sessions).forEach(s=>{
+        if(!Array.isArray(s.rosterIds)) s.rosterIds=[];
+        if(!Array.isArray(s.presentIds)) s.presentIds=[];
+        ensureSessionAttendance(s);
+      });
+      return normalized;
+    }
+    function importBackupFile(file){
+      if(!file) return;
+      const reader=new FileReader();
+      reader.onload=()=>{
+        try{
+          const parsed=JSON.parse(reader.result);
+          const nextState=normalizeImportedState(parsed);
+          if(!nextState){ toast('백업 파일 형식이 맞지 않습니다.'); return; }
+          const countPeople=nextState.people.length;
+          const countSessions=Object.keys(nextState.sessions || {}).length;
+          if(!confirm(`백업 파일을 불러오면 현재 저장된 데이터가 교체됩니다.\
+\
+불러올 데이터: 등록 ${countPeople}명 / 주차 기록 ${countSessions}개\
+진행할까요?`)) return;
+          state=nextState;
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+          backupMeta.lastImportedAt = new Date().toISOString();
+          saveBackupMeta();
+          selectedStatsMonth=null;
+          selectedHistoryMonth=null;
+          renderAll();
+          toast('백업을 불러왔습니다.');
+        }catch(e){
+          toast('백업 파일을 읽지 못했습니다.');
+        }
+      };
+      reader.readAsText(file,'utf-8');
+    }
+    function clearAllData(){
+      if(!confirm('정말 모든 등록 명단과 출석 기록을 초기화할까요?')) return;
+      const word=prompt('전체 데이터를 삭제하려면 아래에 초기화 라고 입력해 주세요.');
+      if(word !== '초기화'){ toast('초기화를 취소했습니다.'); return; }
+      state={ people:[], sessions:{} };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      selectedStatsMonth=null;
+      selectedHistoryMonth=null;
+      resetForm();
+      renderAll();
+      toast('전체 데이터가 초기화되었습니다.');
+    }
+
+    function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,8); }
+    function toast(msg){ const el=document.getElementById('toast'); el.textContent=msg; el.classList.add('show'); clearTimeout(toast.t); toast.t=setTimeout(()=>el.classList.remove('show'),1700); }
+
+    function getChoseong(str){
+      const CHO = ['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
+      return (str||'').split('').map(ch=>{
+        const code = ch.charCodeAt(0) - 44032;
+        if(code >= 0 && code <= 11171) return CHO[Math.floor(code/588)];
+        return ch.toLowerCase();
+      }).join('');
+    }
+    function matches(person, query){
+      const q=(query||'').trim().toLowerCase();
+      if(!q) return true;
+      const name=(person.name||'').toLowerCase();
+      const initial=getChoseong(person.name).toLowerCase();
+      const qInitial=getChoseong(q).toLowerCase();
+      return name.includes(q) || initial.includes(q) || initial.includes(qInitial) || String(person.note||'').toLowerCase().includes(q) || String(person.membershipReason||'').toLowerCase().includes(q) || String(person.membershipNote||'').toLowerCase().includes(q) || (q.includes('신입') && isActiveFreshman(person));
+    }
+    function sortedPeople(){ return [...state.people].sort((a,b)=>a.name.localeCompare(b.name,'ko')); }
+    function membershipStatus(p){ return (p && (p.membershipStatus==='moved' || p.membershipStatus==='left')) ? p.membershipStatus : 'active'; }
+    function isActiveMember(p){ return membershipStatus(p)==='active'; }
+    function yearStartISO(year){ return `${year}-01-01`; }
+    function dateOnly(d){ return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
+    function todayOnly(){ return dateOnly(new Date()); }
+    function isoToDate(iso){
+      if(!iso) return null;
+      const parts=String(iso).split('-').map(Number);
+      if(parts.length<3 || !parts[0] || !parts[1] || !parts[2]) return null;
+      return new Date(parts[0], parts[1]-1, parts[2]);
+    }
+    function dateToISO(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+    function defaultMembershipStartAt(){ return yearStartISO(now.getFullYear()); }
+    function personMembershipStartAt(p){
+      if(!p) return defaultMembershipStartAt();
+      const yStart = yearStartISO(now.getFullYear());
+      const saved = p.membershipStartAt || p.rosterStartAt || '';
+      // 새신자는 기본적으로 새신자 등록일자부터 재적 계산합니다.
+      // 이전 파일에서 새신자인데 재적 기준이 1월 1일로 잘못 저장된 데이터도 여기서 보정합니다.
+      if(p.isNew && p.newRegisteredAt && (!saved || saved === yStart || p.membershipBasis === 'existing')) return p.newRegisteredAt;
+      if(p.membershipBasis === 'existing') return yStart;
+      if(p.membershipBasis === 'new') return saved || p.newRegisteredAt || todayISO();
+      return saved || yStart;
+    }
+    function membershipBasisOfPerson(p){
+      if(!p) return 'existing';
+      const yStart = yearStartISO(now.getFullYear());
+      if(p.isNew && p.newRegisteredAt && (!p.membershipStartAt || p.membershipStartAt === yStart || p.membershipBasis === 'existing')) return 'new';
+      if(p.membershipBasis === 'existing' || p.membershipBasis === 'new') return p.membershipBasis;
+      return personMembershipStartAt(p) === yStart ? 'existing' : 'new';
+    }
+    function hasNewcomerHistory(p){
+      return !!(p && (p.isNew || p.newGraduatedAt));
+    }
+    function sessionDateFromKey(key){
+      const parsed=parseKey(key);
+      const day=sundayDayForWeek(parsed.year, parsed.month, parsed.week);
+      if(!day) return null;
+      return new Date(parsed.year, parsed.month-1, day);
+    }
+    function isRosterTargetForSession(p,key){
+      const date=sessionDateFromKey(key);
+      if(!date) return false;
+      return isRosterTargetOnDate(p, date);
+    }
+    function isRosterTargetOnDate(p,date){
+      if(!p || !date) return false;
+      const start=isoToDate(personMembershipStartAt(p));
+      if(start && dateOnly(date) < dateOnly(start)) return false;
+      const status=membershipStatus(p);
+      if((status==='moved' || status==='left') && p.membershipChangedAt){
+        const end=isoToDate(p.membershipChangedAt);
+        if(end && dateOnly(date) >= dateOnly(end)) return false;
+      }
+      return true;
+    }
+    function activePeople(){ return state.people.filter(isActiveMember); }
+    function sessionKey(y,m,w){ return `${y}-${String(m).padStart(2,'0')}-${w}`; }
+    function parseKey(key){ const [y,m,w]=key.split('-').map(Number); return {year:y,month:m,week:w}; }
+    function keyOrder(key){ const p=parseKey(key); return p.year*1000+p.month*10+p.week; }
+    function selectedKey(prefix){ return sessionKey(document.getElementById(prefix+'Year').value, document.getElementById(prefix+'Month').value, document.getElementById(prefix+'Week').value); }
+    function ensureSessionAttendance(s){
+      if(!s) return;
+      if(!Array.isArray(s.presentIds)) s.presentIds=[];
+      if(!Array.isArray(s.rosterIds)) s.rosterIds=[];
+      if(!s.attendanceStatus){
+        s.attendanceStatus={};
+        s.presentIds.forEach(id=>{ s.attendanceStatus[id]='onsite'; });
+      }
+      Object.keys(s.attendanceStatus).forEach(id=>{
+        if(s.attendanceStatus[id] !== 'onsite' && s.attendanceStatus[id] !== 'online' && s.attendanceStatus[id] !== 'absent') delete s.attendanceStatus[id];
+      });
+      s.presentIds=Object.keys(s.attendanceStatus).filter(id=>s.attendanceStatus[id]==='onsite' || s.attendanceStatus[id]==='online');
+    }
+    function getAttendanceStatus(s,id){
+      ensureSessionAttendance(s);
+      const status = s && s.attendanceStatus ? s.attendanceStatus[id] : null;
+      return (status==='onsite' || status==='online' || status==='absent') ? status : 'absent';
+    }
+    function setAttendanceStatus(s,id,status){
+      ensureSessionAttendance(s);
+      if(!Array.isArray(s.rosterIds)) s.rosterIds=[];
+      if(status==='onsite' || status==='online' || status==='absent'){
+        s.attendanceStatus[id]=status;
+        if(!s.rosterIds.includes(id)) s.rosterIds.push(id);
+      }else{
+        delete s.attendanceStatus[id];
+      }
+      s.presentIds=Object.keys(s.attendanceStatus).filter(pid=>s.attendanceStatus[pid]==='onsite' || s.attendanceStatus[pid]==='online');
+    }
+    function nextAttendanceStatus(status){ return status==='absent' ? 'onsite' : (status==='onsite' ? 'online' : 'absent'); }
+    function statusLabel(status){ return status==='onsite' ? '현장' : (status==='online' ? '온라인' : '미출석'); }
+    function sessionCounts(s){
+      ensureSessionAttendance(s);
+      const currentIds=activePeople().map(p=>p.id);
+      const rosterIds=(s && Array.isArray(s.rosterIds) && s.rosterIds.length) ? s.rosterIds.filter(id=>currentIds.includes(id)) : currentIds;
+      let onsite=0, online=0;
+      rosterIds.forEach(id=>{ const st=getAttendanceStatus(s,id); if(st==='onsite') onsite++; if(st==='online') online++; });
+      return { onsite, online, present: onsite+online, total: rosterIds.length };
+    }
+
+    function fillSelectors(){
+      const years = [];
+      for(let y=now.getFullYear()-2; y<=now.getFullYear()+2; y++) years.push(y);
+      const months = Array.from({length:12},(_,i)=>i+1);
+      const weeks = [1,2,3,4,5];
+      ['check','history','rateStart','rateEnd','stats'].forEach(prefix=>{
+        setOptions(prefix+'Year', years, now.getFullYear(), '년');
+        setOptions(prefix+'Month', months, now.getMonth()+1, '월');
+        setOptions(prefix+'Week', weeks, getWeekOfMonth(now), '주차');
+      });
+    }
+    function setOptions(id, arr, selected, suffix){
+      const el=document.getElementById(id);
+      if(!el) return;
+      el.innerHTML = arr.map(v=>`<option value="${v}" ${Number(v)===Number(selected)?'selected':''}>${v}${suffix}</option>`).join('');
+    }
+    function getWeekOfMonth(d){ return Math.min(5, Math.ceil(d.getDate()/7)); }
+
+    function renderAll(){
+      document.getElementById('topTotal').textContent = activePeople().length;
+      renderRoster(); renderCheck(); renderHistory();
+      if(currentPage==='rate') renderRate(false);
+      if(currentPage==='stats') renderStats();
+      if(currentPage==='backup') renderBackupSummary();
+    }
+    function renderBadges(p){
+      let html='<div class="badges">';
+      html += `<span class="badge ${p.gender==='male'?'gender-male':'gender-female'}" title="${p.gender==='male'?'남자':'여자'}" aria-label="${p.gender==='male'?'남자':'여자'}"></span>`;
+      if(isActiveFreshman(p)) html += '<span class="badge freshman" title="신입" aria-label="신입"></span>';
+      if(isActiveNewcomer(p)) html += '<span class="badge new" title="새신자" aria-label="새신자"></span>';
+      if(p.isMarried) html += '<span class="badge married" title="기혼자" aria-label="기혼자"></span>';
+      html += '</div>';
+      return html;
+    }
+    function isActiveFreshman(p){
+      return !!(p && p.isFreshman && Number(p.freshmanYear || 0) === now.getFullYear());
+    }
+    function freshmanStatusLabel(p){
+      if(isActiveFreshman(p)) return '신입';
+      if(p && p.isFreshman && p.freshmanYear) return `${p.freshmanYear}년 신입`;
+      return '해당 없음';
+    }
+    function isActiveNewcomer(p){
+      return !!(p && p.isNew && !p.newGraduatedAt);
+    }
+    function isGraduatedNewcomer(p){
+      return !!(p && p.newGraduatedAt && !p.isNew);
+    }
+    function newcomerStatus(p){
+      if(p.isNew) return 'training';
+      if(p.newGraduatedAt) return 'graduated';
+      return 'none';
+    }
+    function newcomerStatusLabel(p){
+      const s=newcomerStatus(p);
+      if(s==='training') return '교육중';
+      if(s==='graduated') return '수료';
+      return '해당 없음';
+    }
+    function formatDateText(dateStr){
+      if(!dateStr) return '-';
+      return String(dateStr).replaceAll('-','.');
+    }
+    function membershipStatusLabel(p){
+      const s=membershipStatus(p);
+      if(s==='moved') return '부서 이동';
+      if(s==='left') return '이탈';
+      return '재적';
+    }
+    function personDetailHtml(p){
+      const status=newcomerStatus(p);
+      const note=(p.note||'').trim();
+      const memberStatus=membershipStatus(p);
+      const statusChip=`<span class="status-chip ${status}">${newcomerStatusLabel(p)}</span>`;
+      const memberChip=`<span class="status-chip ${memberStatus}">${membershipStatusLabel(p)}</span>`;
+      const graduateBtn = status==='training'
+        ? `<button type="button" class="icon-btn green" onclick="completeNewcomer('${p.id}')">새신자 수료 처리</button>`
+        : (status==='graduated' ? `<button type="button" class="icon-btn blue" onclick="restoreNewcomer('${p.id}')">교육중 복구</button>` : '');
+      const membershipBtn = memberStatus==='active'
+        ? `<button type="button" class="icon-btn" onclick="changeMembership('${p.id}')">소속 변경</button>`
+        : `<button type="button" class="icon-btn blue" onclick="restoreMembership('${p.id}')">재적 복구</button>`;
+      return `<div class="person-detail" id="person-detail-${p.id}">
+        <div class="detail-grid">
+          <div class="detail-item"><div class="detail-label">성별</div><div class="detail-value">${p.gender==='male'?'남자':'여자'}</div></div>
+          <div class="detail-item"><div class="detail-label">구분</div><div class="detail-value">${p.isMarried?'기혼자':'-'}</div></div>
+          <div class="detail-item"><div class="detail-label">신입 여부</div><div class="detail-value">${freshmanStatusLabel(p)}</div></div>
+          <div class="detail-item"><div class="detail-label">소속 상태</div><div class="detail-value">${memberChip}</div></div>
+          <div class="detail-item"><div class="detail-label">소속 변경일</div><div class="detail-value">${formatDateText(p.membershipChangedAt)}</div></div>
+          <div class="detail-item"><div class="detail-label">소속 변경 사유</div><div class="detail-value">${p.membershipReason?escapeHtml(p.membershipReason):'-'}</div></div>
+          <div class="detail-item"><div class="detail-label">새신자 상태</div><div class="detail-value">${statusChip}</div></div>
+          <div class="detail-item"><div class="detail-label">새신자 등록일자</div><div class="detail-value">${formatDateText(p.newRegisteredAt)}</div></div>
+          <div class="detail-item"><div class="detail-label">새신자 수료일자</div><div class="detail-value">${formatDateText(p.newGraduatedAt)}</div></div>
+          <div class="detail-item"><div class="detail-label">특이사항</div><div class="detail-value">${note?escapeHtml(note):'-'}</div></div>
+        </div>
+        <div class="detail-actions">${graduateBtn}<button type="button" class="icon-btn" onclick="openPersonAttendanceCalendar('${p.id}')">출석일자 보기</button>${membershipBtn}<button type="button" class="icon-btn" onclick="editPerson('${p.id}')">수정</button></div>
+      </div>`;
+    }
+    function personRow(p, options={}){
+      const badges = renderBadges(p);
+      const note = (p.note||'').trim();
+      const noteHtml = note ? `<div class="person-note">${escapeHtml(note)}</div>` : '';
+      if(options.mode==='roster'){
+        return `<div class="person roster-person"><div class="roster-top"><div class="person-main"><span class="person-name">${escapeHtml(p.name)}</span>${badges}${noteHtml}</div><div class="actions"><button class="icon-btn" onclick="togglePersonDetail('${p.id}')">상세</button><button class="icon-btn del" onclick="deletePerson('${p.id}')">삭제</button></div></div>${personDetailHtml(p)}</div>`;
+      }
+      if(options.mode==='check'){
+        const key = selectedKey('check');
+        const session = state.sessions[key];
+        const status = getAttendanceStatus(session,p.id);
+        return `<div class="person attendance-person ${status}" onclick="cycleCurrentAttendance('${p.id}')"><div class="person-main"><span class="person-name">${escapeHtml(p.name)}</span>${badges}</div><button class="status-btn ${status}" type="button">${statusLabel(status)}</button></div>`;
+      }
+      return '';
+    }
+    function currentRosterFilter(){
+      const genderActive=document.querySelector('#rosterFilterRow [data-roster-gender].active');
+      const statuses=[...document.querySelectorAll('#rosterFilterRow [data-roster-status].active')].map(btn=>btn.dataset.rosterStatus);
+      const membershipActive=document.querySelector('#rosterFilterRow [data-roster-membership].active');
+      return { gender: genderActive ? genderActive.dataset.rosterGender : 'all', statuses, membership: membershipActive ? membershipActive.dataset.rosterMembership : 'active' };
+    }
+    function filterLabelParts(filter){
+      const genderLabel={all:'전체', male:'남자', female:'여자'}[filter.gender] || '전체';
+      const statusMap={freshman:'신입', new:'새신자', married:'기혼자', completed:'수료자'};
+      const memberMap={active:'재적', moved:'이동', left:'이탈'};
+      const memberLabel=memberMap[filter.membership || 'active'] || '재적';
+      const statusLabels=(filter.statuses||[]).map(v=>statusMap[v]).filter(Boolean);
+      const parts=[memberLabel];
+      if(filter.gender && filter.gender!=='all') parts.push(genderLabel);
+      if(statusLabels.length) parts.push(statusLabels.join(' + '));
+      return parts.join(' · ');
+    }
+    function rosterFilterLabel(filter){ return filterLabelParts(filter); }
+    function personMatchesStatusFilter(p, status){
+      if(status==='freshman') return isActiveFreshman(p);
+      if(status==='new') return isActiveNewcomer(p);
+      if(status==='married') return !!p.isMarried;
+      if(status==='completed') return isGraduatedNewcomer(p);
+      return true;
+    }
+    function applyRosterFilter(list, filter){
+      const f=typeof filter==='string' ? {gender:filter, statuses:[]} : (filter || {gender:'all', statuses:[]});
+      let result=list;
+      const membership=f.membership || 'active';
+      result=result.filter(p=>membershipStatus(p)===membership);
+      if(f.gender==='male') result=result.filter(p=>p.gender==='male');
+      if(f.gender==='female') result=result.filter(p=>p.gender==='female');
+      (f.statuses||[]).forEach(status=>{ result=result.filter(p=>personMatchesStatusFilter(p,status)); });
+      return result;
+    }
+    function renderRoster(){
+      const q=document.getElementById('rosterSearch').value;
+      const filter=currentRosterFilter();
+      const searched=sortedPeople().filter(p=>matches(p,q));
+      const people=applyRosterFilter(searched,filter);
+      const totalForFilter=applyRosterFilter(state.people.slice(),filter).length;
+      document.getElementById('rosterListTitle').textContent = rosterFilterLabel(filter);
+      document.getElementById('rosterListCount').textContent = `${people.length}명 / 전체 ${totalForFilter}명`;
+      document.getElementById('rosterList').innerHTML = people.length ? people.map(p=>personRow(p,{mode:'roster'})).join('') : '<div class="empty">조건에 맞는 명단이 없습니다.</div>';
+    }
+    function renderCheck(){
+      const key=selectedKey('check');
+      if(!state.sessions[key]) state.sessions[key]={key, year:Number(document.getElementById('checkYear').value), month:Number(document.getElementById('checkMonth').value), week:Number(document.getElementById('checkWeek').value), rosterIds: activePeople().map(p=>p.id), presentIds: [], attendanceStatus:{}};
+      const session=state.sessions[key];
+      ensureSessionAttendance(session);
+      if(!Array.isArray(session.rosterIds) || !session.rosterIds.length) session.rosterIds = activePeople().map(p=>p.id);
+      const q=document.getElementById('checkSearch').value;
+      const people=sortedPeople().filter(isActiveMember).filter(p=>matches(p,q));
+      const males=people.filter(p=>p.gender==='male');
+      const females=people.filter(p=>p.gender==='female');
+      const counts=sessionCounts(session);
+      document.getElementById('presentCount').textContent = counts.present;
+      document.getElementById('checkTotal').textContent = activePeople().length;
+      const breakdown=document.getElementById('checkBreakdown');
+      if(breakdown) breakdown.textContent = `현장 ${counts.onsite} · 온라인 ${counts.online}`;
+      document.getElementById('maleCheck').innerHTML = males.length ? males.map(p=>personRow(p,{mode:'check'})).join('') : '<div class="empty">남자 명단 없음</div>';
+      document.getElementById('femaleCheck').innerHTML = females.length ? females.map(p=>personRow(p,{mode:'check'})).join('') : '<div class="empty">여자 명단 없음</div>';
+    }
+    function metricForHistoryKey(key){
+      return metricForSessionKey(key);
+    }
+    function renderHistory(){
+      const list=document.getElementById('historyList');
+      const grid=document.getElementById('historyMonthGrid');
+      const yearEl=document.getElementById('historyYear');
+      const year=Number(yearEl ? yearEl.value : now.getFullYear());
+      const fmtCount=(v)=>Number.isInteger(v)?String(v):String(Number(v.toFixed(1))).replace(/\.0$/,'');
+      const months=Array.from({length:12},(_,i)=>i+1);
+      const monthly=months.map(month=>{
+        const weeks=validWeeksForMonth(year,month);
+        const weekKeys=weeks.map(w=>sessionKey(year,month,w));
+        const records=weekKeys.map(metricForHistoryKey).filter(Boolean);
+        const total=records.reduce((sum,r)=>sum+r.total,0);
+        const present=records.reduce((sum,r)=>sum+r.present,0);
+        const onsite=records.reduce((sum,r)=>sum+r.onsite,0);
+        const online=records.reduce((sum,r)=>sum+r.online,0);
+        const available=records.length;
+        const avgTotal=available ? total/available : 0;
+        const avgPresent=available ? present/available : 0;
+        const avgOnsite=available ? onsite/available : 0;
+        const avgOnline=available ? online/available : 0;
+        const rate=total ? Math.round((present/total)*100) : null;
+        return {month, weekKeys, records, total, present, onsite, online, avgTotal, avgPresent, avgOnsite, avgOnline, rate, available};
+      });
+      const recordedMonths=monthly.filter(m=>m.available);
+      if(!selectedHistoryMonth || !monthly.some(m=>`${year}-${m.month}`===selectedHistoryMonth)){
+        const currentMonthId=`${year}-${now.getMonth()+1}`;
+        selectedHistoryMonth = monthly.some(m=>`${year}-${m.month}`===currentMonthId) ? currentMonthId : `${year}-${recordedMonths[0]?.month || 1}`;
+      }
+      if(grid){
+        grid.innerHTML=monthly.map(m=>{
+          const active=selectedHistoryMonth===`${year}-${m.month}` ? ' active' : '';
+          const rateText=m.available ? `${m.rate}%` : '기록 없음';
+          const meta=m.available ? `평균 출석 ${fmtCount(m.avgPresent)}/${fmtCount(m.avgTotal)}명<br>현장 ${fmtCount(m.avgOnsite)} · 온라인 ${fmtCount(m.avgOnline)}` : '기록 없음';
+          return `<button class="month-card${active}" onclick="selectHistoryMonth('${year}-${m.month}')"><div class="month-title">${m.month}월</div><div class="month-rate">${rateText}</div><div class="month-meta">${meta}</div></button>`;
+        }).join('');
+      }
+      const selectedMonth=monthly.find(m=>`${year}-${m.month}`===selectedHistoryMonth) || monthly[0];
+      const searchEl=document.getElementById('historySearch');
+      const q=searchEl ? searchEl.value : '';
+      const weekCards=validWeeksForMonth(year,selectedMonth.month).map(week=>{
+        const key=sessionKey(year,selectedMonth.month,week);
+        const s=state.sessions[key];
+        if(s) ensureSessionAttendance(s);
+        const metric=metricForHistoryKey(key);
+        if(!metric){
+          return `<div class="session-card history-week-card no-session"><div class="session-line"><div><div class="session-title">${year}년 ${selectedMonth.month}월 ${week}주차</div><div class="session-meta">저장된 출석 기록이 없습니다.</div></div><div class="no-record">기록 없음</div></div></div>`;
+        }
+        const filtered=sortedPeople().filter(person=>isRosterTargetForSession(person,key)).filter(person=>matches(person,q));
+        const makeRow=(person)=>{
+          const status=s ? getAttendanceStatus(s,person.id) : 'absent';
+          return `<div class="history-person"><div class="person-main"><strong class="person-name">${escapeHtml(person.name)}</strong>${renderBadges(person)}</div><button class="status-btn ${status}" type="button" onclick="cycleHistoryAttendance('${key}','${person.id}')">${statusLabel(status)}</button></div>`;
+        };
+        const males=filtered.filter(person=>person.gender==='male');
+        const females=filtered.filter(person=>person.gender==='female');
+        const detail=`<div class="split-list detail-split"><div class="gender-box"><div class="gender-head">남 <span class="count">${males.length}명</span></div>${males.length?males.map(makeRow).join(''):'<div class="empty">남자 명단 없음</div>'}</div><div class="gender-box"><div class="gender-head">여 <span class="count">${females.length}명</span></div>${females.length?females.map(makeRow).join(''):'<div class="empty">여자 명단 없음</div>'}</div></div>`;
+        return `<div class="session-card history-week-card"><div class="session-line"><div><div class="session-title">${year}년 ${selectedMonth.month}월 ${week}주차</div><div class="session-meta">재적인원 ${metric.total}명 / 출석인원 ${metric.present}명<br>현장 ${metric.onsite}명 / 온라인 ${metric.online}명</div></div><button class="btn small secondary" onclick="toggleDetail('${key}')">상세 보기</button></div><div class="detail" id="detail-${key}">${detail}</div></div>`;
+      }).join('');
+      list.innerHTML=`<div class="card"><h2 class="title">${year}년 ${selectedMonth.month}월 주차별 출석 현황</h2><p class="sub">상세 보기를 누르면 해당 주차의 출석 여부를 직접 수정할 수 있습니다.</p>${weekCards}</div>`;
+    }
+    window.selectHistoryMonth=function(id){ selectedHistoryMonth=id; renderHistory(); }
+    function currentRateFilter(){
+      const genderActive=document.querySelector('#rateFilterRow [data-rate-gender].active');
+      const statuses=[...document.querySelectorAll('#rateFilterRow [data-rate-status].active')].map(btn=>btn.dataset.rateStatus);
+      const membershipActive=document.querySelector('#rateFilterRow [data-rate-membership].active');
+      return { gender: genderActive ? genderActive.dataset.rateGender : 'all', statuses, membership: membershipActive ? membershipActive.dataset.rateMembership : 'active' };
+    }
+    function currentRateSort(){
+      const active=document.querySelector('#rateSortRow .filter-btn.active');
+      return active ? active.dataset.rateSort : 'name';
+    }
+    function rateFilterLabel(filter){ return filterLabelParts(filter); }
+    function renderRate(doCalc){
+      const box=document.getElementById('rateResult');
+      if(!doCalc && !box.dataset.calculated) return;
+      box.dataset.calculated='1';
+      const start=selectedKey('rateStart');
+      const end=selectedKey('rateEnd');
+      const min=Math.min(keyOrder(start), keyOrder(end));
+      const max=Math.max(keyOrder(start), keyOrder(end));
+      const sessions=allPossibleSessionKeys().filter(k=>keyOrder(k)>=min && keyOrder(k)<=max && metricForSessionKey(k)).sort((a,b)=>keyOrder(a)-keyOrder(b));
+      if(!sessions.length){ box.innerHTML='<div class="card empty">선택한 기간 안에 계산할 출석 대상 주차가 없습니다.</div>'; return; }
+      const searchEl=document.getElementById('rateSearch');
+      const q=searchEl ? searchEl.value : '';
+      const filter=currentRateFilter();
+      const sort=currentRateSort();
+      const basePeople=applyRosterFilter(sortedPeople(),filter);
+      const calcRateRow=(p)=>{
+        const eligibleSessions=sessions.filter(k=>isRosterTargetForSession(p,k));
+        const total=eligibleSessions.length;
+        let onsite=0, online=0;
+        eligibleSessions.forEach(k=>{ const st=getAttendanceStatus(state.sessions[k],p.id); if(st==='onsite') onsite++; if(st==='online') online++; });
+        const attended=onsite+online;
+        const rate= total ? Math.round((attended/total)*100) : 0;
+        return {p,total,attended,onsite,online,rate};
+      };
+      const allRows=basePeople.map(calcRateRow).filter(r=>r.total>0);
+      let rows=allRows.filter(r=>matches(r.p,q));
+      if(sort==='desc') rows.sort((a,b)=>(b.rate-a.rate) || a.p.name.localeCompare(b.p.name,'ko'));
+      else if(sort==='asc') rows.sort((a,b)=>(a.rate-b.rate) || a.p.name.localeCompare(b.p.name,'ko'));
+      else rows.sort((a,b)=>a.p.name.localeCompare(b.p.name,'ko'));
+      const makeRateRow=(r)=>`<div class="rate-person roster-person"><div class="rate-person-top"><div class="rate-person-info"><span class="rate-person-name">${escapeHtml(r.p.name)}</span>${renderBadges(r.p)}</div><div class="rate-person-stat">${r.attended}/${r.total}회</div></div><div class="rate-status-line">현장 ${r.onsite} · 온라인 ${r.online} · 계산 주차 ${r.total}</div><div class="rate-percent"><div class="rate-percent-row"><strong>${r.rate}%</strong><div class="bar-wrap" style="flex:1"><div class="bar" style="width:${r.rate}%"></div></div></div></div></div>`;
+      const filterTotal=allRows.length;
+      box.innerHTML=`<div class="card"><h2 class="title">출석률 결과</h2><p class="sub">기준 기록 ${sessions.length}개 · ${rateFilterLabel(filter)} ${rows.length}명 / 전체 ${filterTotal}명</p><div class="roster-list"><div class="roster-list-head"><span>${rateFilterLabel(filter)}</span><span>${sort==='desc'?'출석률 높은순':(sort==='asc'?'출석률 낮은순':'ㄱㄴㄷ순')}</span></div>${rows.length?rows.map(makeRateRow).join(''):'<div class="empty">조건에 맞는 명단이 없습니다.</div>'}</div></div>`;
+    }
+    function allPossibleSessionKeys(){
+      const keys=new Set(Object.keys(state.sessions || {}));
+      const years=new Set();
+      const currentYear=now.getFullYear();
+      for(let y=currentYear-2; y<=currentYear+2; y++) years.add(y);
+      state.people.forEach(p=>{
+        const start=isoToDate(personMembershipStartAt(p));
+        if(start) years.add(start.getFullYear());
+        const changed=isoToDate(p.membershipChangedAt);
+        if(changed) years.add(changed.getFullYear());
+      });
+      years.forEach(y=>{
+        for(let m=1; m<=12; m++){
+          for(let w=1; w<=5; w++){
+            if(sundayDayForWeek(y,m,w)) keys.add(sessionKey(y,m,w));
+          }
+        }
+      });
+      return Array.from(keys);
+    }
+    function metricForSessionKey(key){
+      const date=sessionDateFromKey(key);
+      if(!date || dateOnly(date) > todayOnly()) return null;
+      const roster=state.people.filter(p=>isRosterTargetForSession(p,key));
+      if(!roster.length) return null;
+      const s=state.sessions[key];
+      if(s) ensureSessionAttendance(s);
+      let onsite=0, online=0;
+      roster.forEach(p=>{
+        const explicit=s && s.attendanceStatus && Object.prototype.hasOwnProperty.call(s.attendanceStatus,p.id) ? s.attendanceStatus[p.id] : 'absent';
+        if(explicit==='onsite') onsite++;
+        if(explicit==='online') online++;
+      });
+      const total=roster.length;
+      const present=onsite+online;
+      return { key, total, present, onsite, online, rate: total ? Math.round((present/total)*100) : 0 };
+    }
+    const STATS_METRICS={
+      rate:{label:'출석률',unit:'%',kind:'rate',legend:'전체 출석률'},
+      total:{label:'재적',unit:'명',kind:'count',legend:'평균 재적'},
+      present:{label:'출석',unit:'명',kind:'count',legend:'평균 출석'},
+      absent:{label:'미출석',unit:'명',kind:'count',legend:'평균 미출석'},
+      newInflow:{label:'새신자',unit:'명',kind:'count',legend:'새신자 유입'}
+    };
+    function isDateInYearMonth(dateStr,year,month){
+      if(!dateStr) return false;
+      const d=new Date(dateStr+'T00:00:00');
+      return !isNaN(d) && d.getFullYear()===Number(year) && (d.getMonth()+1)===Number(month);
+    }
+    function weekOfMonthFromDate(dateStr){
+      const d=new Date(dateStr+'T00:00:00');
+      if(isNaN(d)) return null;
+      return Math.min(5, Math.max(1, Math.ceil(d.getDate()/7)));
+    }
+    function countNewInflow(year,month,week=null){
+      return state.people.filter(p=>{
+        // 실제 새신자 또는 수료 이력이 있는 사람만 유입으로 계산합니다.
+        // 일반 재적인원에게 남아 있던 예전 newRegisteredAt 값은 유입 통계에서 제외합니다.
+        if(!hasNewcomerHistory(p)) return false;
+        if(!isDateInYearMonth(p.newRegisteredAt,year,month)) return false;
+        if(week===null) return true;
+        return weekOfMonthFromDate(p.newRegisteredAt)===Number(week);
+      }).length;
+    }
+    function metricValueText(value, metricKey){
+      const def=STATS_METRICS[metricKey] || STATS_METRICS.rate;
+      if(value===null || typeof value==='undefined' || Number.isNaN(value)) return '기록 없음';
+      const v=Number.isInteger(value)?String(value):String(Number(value.toFixed(1))).replace(/\.0$/,'');
+      return `${v}${def.unit}`;
+    }
+    function makeMetricLineChart(points, labels, title, metricKey){
+      const def=STATS_METRICS[metricKey] || STATS_METRICS.rate;
+      const valid=points.filter(p=>p && typeof p.value==='number');
+      if(!valid.length) return `<div class="chart-empty">${title}<br>표시할 기록이 없습니다.</div>`;
+      const w=320, h=180, padL=42, padR=18, padT=18, padB=28;
+      const innerW=w-padL-padR, innerH=h-padT-padB;
+      let yMax=100;
+      if(def.kind!=='rate'){
+        const maxVal=Math.max(1,...valid.map(p=>Number(p.value)||0));
+        yMax=Math.ceil(maxVal/5)*5 || 5;
+      }
+      const axis=def.kind==='rate' ? [0,25,50,75,100] : [0, Math.round(yMax/2), yMax].filter((v,i,a)=>a.indexOf(v)===i);
+      const all=points.map((p,i)=>{
+        const x=padL + (points.length===1 ? innerW/2 : innerW*(i/(points.length-1)));
+        const y=p ? padT + innerH*(1-(p.value/yMax)) : null;
+        return {x,y,p,label:labels[i]};
+      });
+      const segments=[]; let current=[];
+      all.forEach(pt=>{ if(pt.p){ current.push(`${pt.x},${pt.y}`); } else { if(current.length>1) segments.push(current); current=[]; } });
+      if(current.length>1) segments.push(current);
+      const color=metricKey==='newInflow'?'#22c55e':(metricKey==='absent'?'#94a3b8':(metricKey==='present'?'#16a34a':(metricKey==='total'?'#111827':'#2563eb')));
+      const circles=all.filter(pt=>pt.p).map(pt=>`<circle cx="${pt.x}" cy="${pt.y}" r="4.5" fill="${color}"><title>${pt.label}: ${metricValueText(pt.p.value,metricKey)}</title></circle>`).join('');
+      const polylines=segments.map(seg=>`<polyline points="${seg.join(' ')}" fill="none" stroke="${color}" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>`).join('');
+      const grid=axis.map(v=>{ const y=padT+innerH*(1-v/yMax); return `<line x1="${padL}" y1="${y}" x2="${w-padR}" y2="${y}" stroke="#e6eaf2" stroke-width="1"/><text x="${padL-8}" y="${y+4}" text-anchor="end" font-size="10" font-weight="800" fill="#7b8496">${v}${def.unit}</text>`; }).join('');
+      return `<div class="chart-wrap"><svg class="chart-svg" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" role="img" aria-label="${title}">${grid}${polylines}${circles}</svg></div><div class="chart-axis-labels" style="grid-template-columns:repeat(${labels.length},1fr)">${labels.map(l=>`<span>${l}</span>`).join('')}</div>`;
+    }
+    function renderMetricTabs(){
+      return `<div class="metric-tabs">${Object.keys(STATS_METRICS).map(key=>`<button class="metric-tab${selectedStatsMetric===key?' active':''}" type="button" onclick="selectStatsMetric('${key}')">${STATS_METRICS[key].label}</button>`).join('')}</div>`;
+    }
+    function renderStats(){
+      const box=document.getElementById('statsResult');
+      if(!box) return;
+      const year=Number(document.getElementById('statsYear').value || now.getFullYear());
+      const months=Array.from({length:12},(_,i)=>i+1);
+      const fmt=(v)=>Number.isInteger(v)?String(v):String(Number(v.toFixed(1))).replace(/\.0$/,'');
+      const monthly=months.map(month=>{
+        const weeks=validWeeksForMonth(year,month);
+        const weekKeys=weeks.map(w=>sessionKey(year,month,w));
+        const records=weekKeys.map(metricForSessionKey).filter(Boolean).map(r=>({...r, absent: Math.max(0,(r.total||0)-(r.present||0))}));
+        const available=records.length;
+        const present=records.reduce((sum,r)=>sum+r.present,0);
+        const total=records.reduce((sum,r)=>sum+r.total,0);
+        const absent=records.reduce((sum,r)=>sum+r.absent,0);
+        const onsite=records.reduce((sum,r)=>sum+r.onsite,0);
+        const online=records.reduce((sum,r)=>sum+r.online,0);
+        const avgTotal=available ? total/available : 0;
+        const avgPresent=available ? present/available : 0;
+        const avgAbsent=available ? absent/available : 0;
+        const rate=total ? Math.round((present/total)*100) : null;
+        const newInflow=countNewInflow(year,month);
+        return {month, available, present, total, absent, onsite, online, avgTotal, avgPresent, avgAbsent, rate, newInflow, weekKeys};
+      });
+      const recordedMonths=monthly.filter(m=>m.available || m.newInflow);
+      const attendanceMonths=monthly.filter(m=>m.available);
+      const totalPossible=attendanceMonths.reduce((sum,m)=>sum+m.total,0);
+      const totalPresent=attendanceMonths.reduce((sum,m)=>sum+m.present,0);
+      const totalAbsent=attendanceMonths.reduce((sum,m)=>sum+m.absent,0);
+      const totalOnsite=attendanceMonths.reduce((sum,m)=>sum+m.onsite,0);
+      const totalOnline=attendanceMonths.reduce((sum,m)=>sum+m.online,0);
+      const totalRecords=attendanceMonths.reduce((sum,m)=>sum+m.available,0);
+      const totalNewInflow=monthly.reduce((sum,m)=>sum+m.newInflow,0);
+      const avgTotal=totalRecords ? totalPossible/totalRecords : 0;
+      const avgPresent=totalRecords ? totalPresent/totalRecords : 0;
+      const avgAbsent=totalRecords ? totalAbsent/totalRecords : 0;
+      const avgRate=totalPossible ? Math.round((totalPresent/totalPossible)*100) : 0;
+      const metricPoints=monthly.map(m=>{
+        if(selectedStatsMetric==='rate') return m.available?{value:m.rate}:null;
+        if(selectedStatsMetric==='total') return m.available?{value:m.avgTotal}:null;
+        if(selectedStatsMetric==='present') return m.available?{value:m.avgPresent}:null;
+        if(selectedStatsMetric==='absent') return m.available?{value:m.avgAbsent}:null;
+        if(selectedStatsMetric==='newInflow') return m.newInflow?{value:m.newInflow}:null;
+        return null;
+      });
+      const monthLabels=months.map(m=>`${m}월`);
+      const summary=`<div class="card"><h2 class="title">${year}년 요약</h2><div class="stats-grid"><div class="stat-box"><div class="stat-label">평균 출석률</div><div class="stat-value">${avgRate}%</div></div><div class="stat-box"><div class="stat-label">평균 재적</div><div class="stat-value">${fmt(avgTotal)}명</div></div><div class="stat-box"><div class="stat-label">평균 출석</div><div class="stat-value">${fmt(avgPresent)}명</div></div><div class="stat-box"><div class="stat-label">평균 미출석</div><div class="stat-value">${fmt(avgAbsent)}명</div></div><div class="stat-box"><div class="stat-label">현장 출석</div><div class="stat-value">${totalOnsite}회</div></div><div class="stat-box"><div class="stat-label">온라인 출석</div><div class="stat-value">${totalOnline}회</div></div><div class="stat-box"><div class="stat-label">새신자 유입</div><div class="stat-value">${totalNewInflow}명</div></div></div></div>`;
+      const metricDef=STATS_METRICS[selectedStatsMetric] || STATS_METRICS.rate;
+      const integratedChart=`<div class="card line-chart-card"><h2 class="title">${year}년 통합 그래프</h2><p class="sub">버튼을 누르면 같은 그래프 영역에서 지표만 바뀝니다.</p>${renderMetricTabs()}${makeMetricLineChart(metricPoints,monthLabels,`${year}년 ${metricDef.label} 추이`,selectedStatsMetric)}<div class="chart-legend"><span><span class="dot ${selectedStatsMetric==='newInflow'?'newflow':(selectedStatsMetric==='rate'?'rate':selectedStatsMetric)}"></span> ${metricDef.legend}</span></div></div>`;
+      if(!selectedStatsMonth || !monthly.some(m=>`${year}-${m.month}`===selectedStatsMonth)){
+        const currentMonthId = `${year}-${now.getMonth()+1}`;
+        selectedStatsMonth = monthly.some(m=>`${year}-${m.month}`===currentMonthId) ? currentMonthId : `${year}-${recordedMonths[0]?.month || 1}`;
+      }
+      const cards=monthly.map(m=>{
+        let main='기록 없음', meta='기록 없음';
+        if(selectedStatsMetric==='newInflow'){
+          main=`유입 ${m.newInflow}명`;
+          meta=m.newInflow?`등록일자 기준<br>새신자 유입 ${m.newInflow}명`:'새신자 유입 없음';
+        }else if(m.available){
+          const value = selectedStatsMetric==='rate'?m.rate:(selectedStatsMetric==='total'?m.avgTotal:(selectedStatsMetric==='present'?m.avgPresent:m.avgAbsent));
+          main=metricValueText(value,selectedStatsMetric);
+          meta=`평균 ${fmt(m.avgPresent)}/${fmt(m.avgTotal)}명<br>미출석 ${fmt(m.avgAbsent)}명<br>현장 ${m.onsite} · 온라인 ${m.online}`;
+        }
+        const active = selectedStatsMonth === `${year}-${m.month}` ? ' active' : '';
+        return `<button class="month-card${active}" onclick="selectStatsMonth('${year}-${m.month}')"><div class="month-title">${m.month}월</div><div class="month-rate">${main}</div><div class="month-meta">${meta}</div></button>`;
+      }).join('');
+      const selectedMonth = monthly.find(m=>`${year}-${m.month}`===selectedStatsMonth) || monthly[0];
+      const weekMetrics=selectedMonth.weekKeys.map((k,i)=>{
+        const metric=metricForSessionKey(k);
+        const newInflow=countNewInflow(year,selectedMonth.month,i+1);
+        return {week:i+1, metric: metric ? {...metric, absent:Math.max(0,metric.total-metric.present)} : null, newInflow};
+      });
+      const weekLabels=weekMetrics.map(w=>`${w.week}주`);
+      const weekMetricPoints=weekMetrics.map(w=>{
+        if(selectedStatsMetric==='newInflow') return w.newInflow?{value:w.newInflow}:null;
+        if(!w.metric) return null;
+        if(selectedStatsMetric==='rate') return {value:w.metric.rate};
+        if(selectedStatsMetric==='total') return {value:w.metric.total};
+        if(selectedStatsMetric==='present') return {value:w.metric.present};
+        if(selectedStatsMetric==='absent') return {value:w.metric.absent};
+        return null;
+      });
+      const weekRows=weekMetrics.map(w=>{
+        if(selectedStatsMetric==='newInflow'){
+          return `<div class="week-card"><div class="week-title"><span>${w.week}주차</span><span>${w.newInflow?`유입 ${w.newInflow}명`:'유입 없음'}</span></div><div class="week-meta">새신자 등록일자를 기준으로 계산합니다.</div></div>`;
+        }
+        if(!w.metric) return `<div class="week-card"><div class="week-title"><span>${w.week}주차</span><span class="no-record">기록 없음</span></div></div>`;
+        return `<div class="week-card"><div class="week-title"><span>${w.week}주차</span><span>${w.metric.rate}%</span></div><div class="week-meta">재적 ${w.metric.total}명 / 출석 ${w.metric.present}명 / 미출석 ${w.metric.absent}명<br>현장 ${w.metric.onsite} · 온라인 ${w.metric.online}</div></div>`;
+      }).join('');
+      const detailPanel=`<div class="card month-detail-panel open"><h2 class="title">${selectedMonth.month}월 주차별 상세</h2><p class="sub">위 월 카드 중 하나를 누르면 이 영역만 바뀝니다.</p>${renderMetricTabs()}<h3 class="mini-title">${selectedMonth.month}월 주차별 ${metricDef.label} 추이</h3>${makeMetricLineChart(weekMetricPoints,weekLabels,`${selectedMonth.month}월 주차별 ${metricDef.label} 추이`,selectedStatsMetric)}<div class="chart-legend"><span><span class="dot ${selectedStatsMetric==='newInflow'?'newflow':(selectedStatsMetric==='rate'?'rate':selectedStatsMetric)}"></span> ${metricDef.legend}</span></div><div style="height:8px"></div>${weekRows}</div>`;
+      box.innerHTML=summary+integratedChart+`<div class="card"><h2 class="title">월별 요약</h2><p class="sub">선택한 지표 중심으로 월별 카드가 바뀝니다. 월 카드를 누르면 아래에서 주차별 상세를 확인할 수 있습니다.</p><div class="month-grid">${cards}</div></div>`+detailPanel;
+    }
+    window.selectStatsMonth=function(id){ selectedStatsMonth=id; renderStats(); }
+    window.selectStatsMetric=function(key){ selectedStatsMetric=key; renderStats(); }
+    function escapeHtml(str){ return String(str||'').replace(/[&<>'"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c])); }
+
+    window.togglePersonDetail=function(id){
+      const el=document.getElementById('person-detail-'+id);
+      if(el) el.classList.toggle('open');
+    }
+
+    let calendarPersonId=null;
+    let calendarEditMode=false;
+    let calendarHalf=1;
+    function fillCalendarSelectors(){
+      const years=[];
+      for(let y=now.getFullYear()-3; y<=now.getFullYear()+2; y++) years.push(y);
+      setOptions('calendarYear', years, now.getFullYear(), '년');
+    }
+    function calendarWeekFromDay(day){ return Math.min(5, Math.max(1, Math.ceil(Number(day)/7))); }
+    function firstSundayOfMonth(year,month){
+      const first=new Date(year,month-1,1).getDay();
+      return 1 + ((7 - first) % 7);
+    }
+    function sundayDayForWeek(year,month,week){
+      const day=firstSundayOfMonth(year,month) + (Number(week)-1)*7;
+      const lastDay=new Date(year,month,0).getDate();
+      return day<=lastDay ? day : null;
+    }
+    function validWeeksForMonth(year,month){
+      return [1,2,3,4,5].filter(w=>!!sundayDayForWeek(year,month,w));
+    }
+    function ensureCalendarSession(year,month,week,personId){
+      const key=sessionKey(year,month,week);
+      if(!state.sessions[key]){
+        const ids=activePeople().map(p=>p.id);
+        if(personId && !ids.includes(personId)) ids.push(personId);
+        state.sessions[key]={key, year:Number(year), month:Number(month), week:Number(week), rosterIds:ids, presentIds:[], attendanceStatus:{}};
+      }
+      const s=state.sessions[key];
+      ensureSessionAttendance(s);
+      if(personId && Array.isArray(s.rosterIds) && !s.rosterIds.includes(personId)) s.rosterIds.push(personId);
+      return s;
+    }
+    function calendarStatusForWeek(year,month,week,personId){
+      const p=state.people.find(x=>x.id===personId);
+      const day=sundayDayForWeek(year,month,week);
+      const date=day ? new Date(Number(year), Number(month)-1, Number(day)) : null;
+      const key=sessionKey(year,month,week);
+      const s=state.sessions[key];
+      if(s){
+        ensureSessionAttendance(s);
+        const hasExplicitStatus=!!(s.attendanceStatus && s.attendanceStatus[personId]);
+        const isInRoster=Array.isArray(s.rosterIds) && s.rosterIds.includes(personId);
+        if(hasExplicitStatus) return getAttendanceStatus(s,personId);
+        if(isInRoster) return getAttendanceStatus(s,personId);
+      }
+      if(date && dateOnly(date) <= todayOnly() && isRosterTargetOnDate(p,date)) return 'absent';
+      return 'none';
+    }
+    function calendarStatusText(status){
+      if(status==='onsite') return '현';
+      if(status==='online') return '온';
+      if(status==='absent') return '미';
+      return '-';
+    }
+    function renderPersonCalendar(){
+      const modal=document.getElementById('attendanceCalendarModal');
+      if(!modal || !calendarPersonId) return;
+      const p=state.people.find(x=>x.id===calendarPersonId);
+      if(!p) return;
+      const year=Number(document.getElementById('calendarYear').value || now.getFullYear());
+      const months=calendarHalf===1 ? [1,2,3,4,5,6] : [7,8,9,10,11,12];
+      const halfLabel=calendarHalf===1 ? '상반기' : '하반기';
+      document.getElementById('calendarPersonTitle').textContent = `${p.name} 출석일자`;
+      document.getElementById('calendarPersonSub').textContent = `${year}년 ${halfLabel} 일요일 출석 기록`;
+      document.getElementById('calendarEditBtn').textContent = calendarEditMode ? '수정 종료' : '수정하기';
+      document.getElementById('calendarEditBtn').className = calendarEditMode ? 'btn red' : 'btn ghost';
+      document.getElementById('calendarWarning').classList.toggle('hidden', !calendarEditMode);
+      document.getElementById('calendarFirstHalfBtn')?.classList.toggle('active', calendarHalf===1);
+      document.getElementById('calendarSecondHalfBtn')?.classList.toggle('active', calendarHalf===2);
+      let onsite=0, online=0, absent=0, recordedWeeks=0;
+      months.forEach(month=>{
+        for(let w=1; w<=5; w++){
+          if(!sundayDayForWeek(year,month,w)) continue;
+          const status=calendarStatusForWeek(year,month,w,p.id);
+          if(status==='none') continue;
+          recordedWeeks++;
+          if(status==='onsite') onsite++;
+          else if(status==='online') online++;
+          else absent++;
+        }
+      });
+      document.getElementById('calendarMonthSummary').innerHTML = `<div class="stat-box"><div class="stat-label">현장</div><div class="stat-value">${onsite}</div></div><div class="stat-box"><div class="stat-label">온라인</div><div class="stat-value">${online}</div></div><div class="stat-box"><div class="stat-label">미출석</div><div class="stat-value">${absent}</div></div><div class="stat-box"><div class="stat-label">기록 주차</div><div class="stat-value">${recordedWeeks}</div></div>`;
+      document.getElementById('calendarMonthHeader').innerHTML = '<div>주차</div>' + months.map(m=>`<div>${m}월</div>`).join('');
+      const cells=[];
+      for(let w=1; w<=5; w++){
+        cells.push(`<div class="calendar-day calendar-week-label">${w}주</div>`);
+        months.forEach(month=>{
+          const day=sundayDayForWeek(year,month,w);
+          if(!day){
+            cells.push('<button class="calendar-day blank" type="button" disabled><div class="calendar-day-status">-</div></button>');
+            return;
+          }
+          const status=calendarStatusForWeek(year,month,w,p.id);
+          const cls=status==='none' ? '' : status;
+          cells.push(`<button class="calendar-day ${cls}${calendarEditMode?' editable':''}" type="button" onclick="cycleCalendarWeek(${month},${w})"><div class="calendar-day-num">${day}</div><div class="calendar-day-status">${calendarStatusText(status)}</div></button>`);
+        });
+      }
+      document.getElementById('calendarDays').innerHTML=cells.join('');
+    }
+    window.openPersonAttendanceCalendar=function(id){
+      const p=state.people.find(x=>x.id===id);
+      if(!p) return;
+      calendarPersonId=id;
+      calendarEditMode=false;
+      calendarHalf=(now.getMonth()+1)<=6 ? 1 : 2;
+      const modal=document.getElementById('attendanceCalendarModal');
+      if(!document.getElementById('calendarYear').options.length) fillCalendarSelectors();
+      document.getElementById('calendarYear').value=now.getFullYear();
+      renderPersonCalendar();
+      modal.classList.add('open');
+      modal.setAttribute('aria-hidden','false');
+    }
+    function closePersonAttendanceCalendar(){
+      const modal=document.getElementById('attendanceCalendarModal');
+      if(modal){ modal.classList.remove('open'); modal.setAttribute('aria-hidden','true'); }
+      calendarEditMode=false;
+      calendarPersonId=null;
+      renderAll();
+    }
+    window.cycleCalendarWeek=function(month,week){
+      if(!calendarEditMode){ toast('수정하기를 먼저 눌러주세요.'); return; }
+      const p=state.people.find(x=>x.id===calendarPersonId);
+      if(!p) return;
+      const year=Number(document.getElementById('calendarYear').value);
+      if(!sundayDayForWeek(year,month,week)) return;
+      const key=sessionKey(year,month,week);
+      const existing=state.sessions[key];
+      let hasExplicitCalendarStatus=false;
+      if(existing){
+        ensureSessionAttendance(existing);
+        hasExplicitCalendarStatus=!!(existing.attendanceStatus && Object.prototype.hasOwnProperty.call(existing.attendanceStatus,p.id));
+      }
+      const current=calendarStatusForWeek(year,month,week,p.id);
+      let next;
+      if(current==='none') next='onsite';
+      else if(current==='onsite') next='online';
+      else if(current==='online') next='absent';
+      else if(current==='absent') next=hasExplicitCalendarStatus ? 'none' : 'onsite';
+      else next='onsite';
+      if(next==='none'){
+        if(existing){
+          ensureSessionAttendance(existing);
+          if(existing.attendanceStatus) delete existing.attendanceStatus[p.id];
+          if(Array.isArray(existing.presentIds)) existing.presentIds=existing.presentIds.filter(id=>id!==p.id);
+          if(Array.isArray(existing.rosterIds)) existing.rosterIds=existing.rosterIds.filter(id=>id!==p.id);
+        }
+      }else{
+        const s=ensureCalendarSession(year,month,week,p.id);
+        setAttendanceStatus(s,p.id,next);
+      }
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      renderPersonCalendar();
+      toast(`${month}월 ${week}주차: ${next==='none' ? '기록 없음' : statusLabel(next)}`);
+    }
+
+    window.completeNewcomer=function(id){
+      const p=state.people.find(x=>x.id===id); if(!p) return;
+      if(!p.isNew){ toast('현재 교육중인 새신자가 아닙니다.'); return; }
+      const date=prompt('새신자 수료일자를 입력해 주세요. 예: 2026-06-07', todayISO());
+      if(!date) return;
+      p.isNew=false;
+      if(!p.newRegisteredAt) p.newRegisteredAt=todayISO();
+      p.newGraduatedAt=date;
+      saveState();
+      toast('새신자 수료 처리되었습니다.');
+    }
+    window.graduateNewcomer=window.completeNewcomer;
+    window.changeMembership=function(id){
+      const p=state.people.find(x=>x.id===id); if(!p) return;
+      const type=prompt('소속 상태를 입력해 주세요.\n1: 부서 이동\n2: 이탈', '1');
+      if(!type) return;
+      const status=String(type).trim()==='2' ? 'left' : 'moved';
+      const date=prompt('소속 변경일을 입력해 주세요. 예: 2026-12-31', todayISO());
+      if(!date) return;
+      const reason=prompt('사유를 입력해 주세요. 예: 결혼, 타교회 이동, 장기 미출석, 기타', status==='moved'?'결혼/부서 이동':'타교회 이동/이탈') || '';
+      const statusText = status==='moved' ? '부서 이동' : '이탈';
+      if(!confirm(`소속 상태를 ${statusText}로 변경하면 기간 출석률과 출석 통계 계산 기준이 달라질 수 있습니다.\n\n변경일: ${date}\n사유: ${reason.trim() || '-'}\n\n계속 진행할까요?`)) return;
+      p.membershipStatus=status;
+      p.membershipChangedAt=date;
+      p.membershipReason=reason.trim();
+      saveState();
+      toast(status==='moved'?'부서 이동 처리되었습니다.':'이탈 처리되었습니다.');
+    }
+    window.restoreMembership=function(id){
+      const p=state.people.find(x=>x.id===id); if(!p) return;
+      if(!confirm(`${p.name}님을 재적 상태로 복구할까요?\n재적 복구 시 기간 출석률과 출석 통계 계산 기준이 다시 달라질 수 있습니다.`)) return;
+      p.membershipStatus='active';
+      p.membershipChangedAt='';
+      p.membershipReason='';
+      p.membershipNote='';
+      saveState();
+      toast('재적 상태로 복구되었습니다.');
+    }
+    window.restoreNewcomer=function(id){
+      const p=state.people.find(x=>x.id===id); if(!p) return;
+      if(!confirm(`${p.name}님을 새신자 교육중 상태로 복구할까요?`)) return;
+      p.isNew=true;
+      if(!p.newRegisteredAt) p.newRegisteredAt=todayISO();
+      p.newGraduatedAt='';
+      saveState();
+      toast('새신자 교육중으로 복구되었습니다.');
+    }
+
+    window.editPerson=function(id){
+      const p=state.people.find(x=>x.id===id); if(!p) return;
+      document.getElementById('editId').value=p.id;
+      document.getElementById('nameInput').value=p.name;
+      document.getElementById('noteInput').value=p.note||'';
+      document.querySelectorAll('input[name="gender"]').forEach(r=>r.checked=r.value===p.gender);
+      document.getElementById('isFreshman').checked=!!p.isFreshman;
+      const startAt=personMembershipStartAt(p);
+      const basis=membershipBasisOfPerson(p);
+      const existingBasis=document.querySelector('input[name="membershipBasis"][value="existing"]');
+      const newBasis=document.querySelector('input[name="membershipBasis"][value="new"]');
+      if(existingBasis && newBasis){ if(basis==='existing') existingBasis.checked=true; else newBasis.checked=true; }
+      document.getElementById('isNew').checked=!!p.isNew;
+      document.getElementById('newRegisteredAt').value=p.newRegisteredAt||todayISO();
+      const membershipStartInput=document.getElementById('membershipStartAtInput');
+      if(membershipStartInput){
+        membershipStartInput.value = basis==='new' ? (startAt || p.newRegisteredAt || todayISO()) : yearStartISO(now.getFullYear());
+      }
+      toggleNewDateField(false);
+      document.getElementById('isMarried').checked=!!p.isMarried;
+      document.getElementById('formTitle').textContent='인원 수정';
+      document.getElementById('savePersonBtn').textContent='수정 완료';
+      showPage('register');
+      toast('수정할 내용을 입력해 주세요.');
+    }
+    window.deletePerson=function(id){
+      const p=state.people.find(x=>x.id===id); if(!p) return;
+      if(!confirm(`${p.name}님을 삭제할까요?
+기존 출석 기록에서도 제외됩니다.`)) return;
+      state.people=state.people.filter(x=>x.id!==id);
+      Object.values(state.sessions).forEach(s=>{ ensureSessionAttendance(s); s.rosterIds=s.rosterIds.filter(x=>x!==id); s.presentIds=s.presentIds.filter(x=>x!==id); if(s.attendanceStatus) delete s.attendanceStatus[id]; });
+      saveState(); toast('삭제되었습니다.');
+    }
+    window.cycleCurrentAttendance=function(id){
+      const key=selectedKey('check');
+      const s=state.sessions[key];
+      const next=nextAttendanceStatus(getAttendanceStatus(s,id));
+      setAttendanceStatus(s,id,next);
+      saveState();
+    }
+    window.toggleCurrentAttendance=window.cycleCurrentAttendance;
+    window.toggleDetail=function(key){ document.getElementById('detail-'+key).classList.toggle('open'); }
+    window.cycleHistoryAttendance=function(key,id){
+      const parsed=parseKey(key);
+      const s=state.sessions[key] || ensureCalendarSession(parsed.year, parsed.month, parsed.week, id);
+      if(!s) return;
+      const openDetails = Array.from(document.querySelectorAll('.detail.open')).map(el=>el.id.replace('detail-',''));
+      const next=nextAttendanceStatus(getAttendanceStatus(s,id));
+      setAttendanceStatus(s,id,next);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      renderAll();
+      openDetails.forEach(openKey=>{
+        const detail=document.getElementById('detail-'+openKey);
+        if(detail) detail.classList.add('open');
+      });
+    }
+    window.toggleHistoryAttendance=function(key,id,checked){
+      const s=state.sessions[key]; if(!s) return;
+      setAttendanceStatus(s,id,checked?'onsite':'absent');
+      saveState();
+    }
+
+    function todayISO(){
+      const d=new Date();
+      const pad=n=>String(n).padStart(2,'0');
+      return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+    }
+    function toggleMembershipStartField(){
+      const wrap=document.getElementById('membershipStartWrap');
+      const checked=document.querySelector('input[name="membershipBasis"]:checked');
+      const selected=checked ? checked.value : 'existing';
+      if(wrap) wrap.classList.toggle('hidden', selected!=='new');
+      const date=document.getElementById('membershipStartAtInput');
+      if(selected==='new' && date && !date.value) date.value=todayISO();
+    }
+    function setMembershipBasis(value){
+      const radio=document.querySelector('input[name="membershipBasis"][value="'+value+'"]');
+      if(radio) radio.checked=true;
+      toggleMembershipStartField();
+    }
+    function applyNewcomerMembershipDefault(syncDate, autoSelectNew){
+      const isNewBox=document.getElementById('isNew');
+      const isNew=!!(isNewBox && isNewBox.checked);
+      const existingBasis=document.querySelector('input[name="membershipBasis"][value="existing"]');
+      const newBasis=document.querySelector('input[name="membershipBasis"][value="new"]');
+      const existingLabel=existingBasis ? existingBasis.closest('.choice') : null;
+      if(existingBasis) existingBasis.disabled=false;
+      if(existingLabel) existingLabel.classList.remove('locked');
+      if(isNew){
+        if(autoSelectNew && newBasis) newBasis.checked=true;
+        const newReg=document.getElementById('newRegisteredAt');
+        const memberStart=document.getElementById('membershipStartAtInput');
+        const selected=document.querySelector('input[name="membershipBasis"]:checked');
+        if(memberStart && newReg && selected && selected.value==='new' && (syncDate || !memberStart.value)) memberStart.value=newReg.value || todayISO();
+      }
+      toggleMembershipStartField();
+    }
+    function toggleNewDateField(autoSelectNew){
+      const wrap=document.getElementById('newDateWrap');
+      const isNew=document.getElementById('isNew').checked;
+      if(wrap) wrap.classList.toggle('hidden',!isNew);
+      const date=document.getElementById('newRegisteredAt');
+      if(isNew && date && !date.value) date.value=todayISO();
+      applyNewcomerMembershipDefault(true, !!autoSelectNew && isNew);
+    }
+    function handleMembershipBasisChange(){
+      const selected=document.querySelector('input[name="membershipBasis"]:checked');
+      const isNew=document.getElementById('isNew') && document.getElementById('isNew').checked;
+      if(selected && selected.value==='new' && isNew){
+        const newReg=document.getElementById('newRegisteredAt');
+        const memberStart=document.getElementById('membershipStartAtInput');
+        if(memberStart) memberStart.value=(newReg && newReg.value) ? newReg.value : todayISO();
+      }
+      toggleMembershipStartField();
+    }
+    function resetForm(){
+      document.getElementById('editId').value=''; document.getElementById('nameInput').value=''; document.getElementById('noteInput').value='';
+      document.querySelectorAll('input[name="gender"]').forEach(r=>r.checked=false);
+      const existingBasis=document.querySelector('input[name="membershipBasis"][value="existing"]'); if(existingBasis){ existingBasis.disabled=false; existingBasis.checked=true; const label=existingBasis.closest('.choice'); if(label) label.classList.remove('locked'); }
+      const membershipStartInput=document.getElementById('membershipStartAtInput'); if(membershipStartInput) membershipStartInput.value=todayISO(); toggleMembershipStartField();
+      document.getElementById('isFreshman').checked=false; document.getElementById('isNew').checked=false; document.getElementById('newRegisteredAt').value=todayISO(); toggleNewDateField(false); document.getElementById('isMarried').checked=false;
+      document.getElementById('formTitle').textContent='이름 등록'; document.getElementById('savePersonBtn').textContent='등록하기';
+    }
+    function showPage(page){
+      currentPage=page;
+      document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.page===page));
+      document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active',p.id===page));
+      if(page==='rate') renderRate(false);
+      if(page==='stats') renderStats();
+      window.scrollTo({top:0,behavior:'smooth'});
+    }
+
+    document.getElementById('tabs').addEventListener('click',e=>{ const btn=e.target.closest('.tab'); if(btn) showPage(btn.dataset.page); });
+    function savePersonFromForm(event){
+      if(event && event.preventDefault) event.preventDefault();
+      const name=document.getElementById('nameInput').value.trim();
+      const gender=(document.querySelector('input[name="gender"]:checked') ? document.querySelector('input[name="gender"]:checked').value : undefined);
+      if(!name){ toast('이름을 입력해 주세요.'); return; }
+      if(!gender){ toast('남/여를 선택해 주세요.'); return; }
+      const id=document.getElementById('editId').value;
+      const existing=id ? state.people.find(x=>x.id===id) : null;
+      const isFreshmanChecked=document.getElementById('isFreshman').checked;
+      const isNewChecked=document.getElementById('isNew').checked;
+      const previousFreshmanYear=existing ? Number(existing.freshmanYear || 0) : 0;
+      const previousRegisteredAt=existing ? (existing.newRegisteredAt || '') : '';
+      const previousGraduatedAt=existing ? (existing.newGraduatedAt || '') : '';
+      const previousMembershipStatus=existing ? (existing.membershipStatus || 'active') : 'active';
+      const previousMembershipChangedAt=existing ? (existing.membershipChangedAt || '') : '';
+      const previousMembershipReason=existing ? (existing.membershipReason || '') : '';
+      const previousMembershipNote=existing ? (existing.membershipNote || '') : '';
+      const previousMembershipStartAt=existing ? personMembershipStartAt(existing) : '';
+      const checkedBasis=document.querySelector('input[name="membershipBasis"]:checked');
+      const membershipBasis=checkedBasis ? checkedBasis.value : 'existing';
+      const membershipStartInput=document.getElementById('membershipStartAtInput');
+      const membershipStartAt=membershipBasis==='new' ? ((membershipStartInput && membershipStartInput.value) || (isNewChecked ? (document.getElementById('newRegisteredAt').value || todayISO()) : todayISO())) : yearStartISO(now.getFullYear());
+      if(existing){
+        const previousBasis = membershipBasisOfPerson(existing);
+        const basisChanged = previousBasis !== membershipBasis || previousMembershipStartAt !== membershipStartAt;
+        if(basisChanged){
+          const nextBasisText = membershipBasis==='existing'
+            ? '기존 재적 인원 (해당 연도 1월 1일부터 계산)'
+            : `신규 등록 인원 (${formatDateText(membershipStartAt)}부터 계산)`;
+          if(!confirm(`재적 기준을 변경하면 기간 출석률과 출석 통계 계산 기준이 달라질 수 있습니다.\n\n변경 후 기준: ${nextBasisText}\n\n그래도 저장할까요?`)) return;
+        }
+      }
+      const data={
+        name,
+        gender,
+        note:document.getElementById('noteInput').value.trim(),
+        isFreshman:isFreshmanChecked,
+        freshmanYear:isFreshmanChecked ? (previousFreshmanYear || now.getFullYear()) : 0,
+        isNew:isNewChecked,
+        isMarried:document.getElementById('isMarried').checked,
+        newRegisteredAt:isNewChecked ? (document.getElementById('newRegisteredAt').value || todayISO()) : (previousGraduatedAt ? previousRegisteredAt : ''),
+        newGraduatedAt:isNewChecked ? '' : previousGraduatedAt,
+        membershipStatus:previousMembershipStatus,
+        membershipChangedAt:previousMembershipChangedAt,
+        membershipReason:previousMembershipReason,
+        membershipNote:previousMembershipNote,
+        membershipStartAt: membershipStartAt,
+        membershipBasis: membershipBasis,
+        createdAt: new Date().toISOString()
+      };
+      if(id){
+        const p=state.people.find(x=>x.id===id);
+        if(!p){ toast('수정할 대상을 찾지 못했습니다. 다시 상세에서 수정해 주세요.'); return; }
+        Object.assign(p,data,{createdAt:p.createdAt||data.createdAt});
+        toast('수정되었습니다.');
+      }
+      else { state.people.push({ id:uid(), ...data }); toast('등록되었습니다.'); }
+      resetForm(); saveState(); showPage('roster');
+    }
+    window.savePersonFromForm=savePersonFromForm;
+    const savePersonButton=document.getElementById('savePersonBtn');
+    if(savePersonButton){
+      savePersonButton.addEventListener('click',savePersonFromForm);
+      savePersonButton.addEventListener('touchend',function(e){ e.preventDefault(); savePersonFromForm(e); },{passive:false});
+      savePersonButton.onclick=savePersonFromForm;
+    }
+    
+    document.addEventListener('click',function(e){
+      const saveBtn=e.target && e.target.closest ? e.target.closest('#savePersonBtn') : null;
+      if(saveBtn){ e.preventDefault(); e.stopPropagation(); savePersonFromForm(e); }
+    },true);
+    document.addEventListener('touchend',function(e){
+      const saveBtn=e.target && e.target.closest ? e.target.closest('#savePersonBtn') : null;
+      if(saveBtn){ e.preventDefault(); e.stopPropagation(); savePersonFromForm(e); }
+    },{capture:true,passive:false});
+
+    document.getElementById('resetFormBtn').addEventListener('click',resetForm);
+    document.querySelectorAll('input[name="membershipBasis"]').forEach(r=>r.addEventListener('change',handleMembershipBasisChange));
+    document.getElementById('isNew').addEventListener('change',()=>toggleNewDateField(true));
+    const newRegisteredAtInput=document.getElementById('newRegisteredAt');
+    if(newRegisteredAtInput){
+      newRegisteredAtInput.addEventListener('change',()=>applyNewcomerMembershipDefault(true,false));
+      newRegisteredAtInput.addEventListener('input',()=>applyNewcomerMembershipDefault(true,false));
+    }
+    document.getElementById('newRegisteredAt').addEventListener('change',()=>applyNewcomerMembershipDefault(true,false));
+    document.getElementById('newRegisteredAt').addEventListener('input',()=>applyNewcomerMembershipDefault(true,false));
+    document.getElementById('rosterSearch').addEventListener('input',renderRoster);
+    document.getElementById('clearRosterSearchBtn').addEventListener('click',()=>{
+      document.getElementById('rosterSearch').value='';
+      renderRoster();
+    });
+    document.querySelectorAll('#rosterFilterRow [data-roster-gender]').forEach(btn=>btn.addEventListener('click',()=>{
+      document.querySelectorAll('#rosterFilterRow [data-roster-gender]').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      renderRoster();
+    }));
+    document.querySelectorAll('#rosterFilterRow [data-roster-status]').forEach(btn=>btn.addEventListener('click',()=>{
+      btn.classList.toggle('active');
+      renderRoster();
+    }));
+    document.querySelectorAll('#rosterFilterRow [data-roster-membership]').forEach(btn=>btn.addEventListener('click',()=>{
+      document.querySelectorAll('#rosterFilterRow [data-roster-membership]').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      renderRoster();
+    }));
+    document.getElementById('checkSearch').addEventListener('input',renderCheck);
+    document.getElementById('clearCheckSearchBtn').addEventListener('click',()=>{ document.getElementById('checkSearch').value=''; renderCheck(); });
+    document.getElementById('historySearch').addEventListener('input',renderHistory);
+    document.getElementById('clearHistorySearchBtn').addEventListener('click',()=>{ document.getElementById('historySearch').value=''; renderHistory(); });
+    document.querySelectorAll('#rateFilterRow [data-rate-gender]').forEach(btn=>btn.addEventListener('click',()=>{
+      document.querySelectorAll('#rateFilterRow [data-rate-gender]').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      renderRate(false);
+    }));
+    document.querySelectorAll('#rateFilterRow [data-rate-status]').forEach(btn=>btn.addEventListener('click',()=>{
+      btn.classList.toggle('active');
+      renderRate(false);
+    }));
+    document.querySelectorAll('#rateFilterRow [data-rate-membership]').forEach(btn=>btn.addEventListener('click',()=>{
+      document.querySelectorAll('#rateFilterRow [data-rate-membership]').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      renderRate(false);
+    }));
+    document.querySelectorAll('#rateSortRow .filter-btn').forEach(btn=>btn.addEventListener('click',()=>{
+      document.querySelectorAll('#rateSortRow .filter-btn').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      renderRate(false);
+    }));
+    document.getElementById('rateSearch').addEventListener('input',()=>renderRate(false));
+    document.getElementById('clearRateSearchBtn').addEventListener('click',()=>{ document.getElementById('rateSearch').value=''; renderRate(false); });
+    ['checkYear','checkMonth','checkWeek'].forEach(id=>document.getElementById(id).addEventListener('change',()=>{ renderCheck(); }));
+    document.getElementById('saveAttendanceBtn').addEventListener('click',()=>{ saveState(); toast('출석이 저장되었습니다.'); });
+    document.getElementById('historyYear').addEventListener('change',()=>{ selectedHistoryMonth=null; renderHistory(); });
+    document.getElementById('calcRateBtn').addEventListener('click',()=>renderRate(true));
+    ['rateStartYear','rateStartMonth','rateStartWeek','rateEndYear','rateEndMonth','rateEndWeek'].forEach(id=>document.getElementById(id).addEventListener('change',()=>renderRate(false)));
+    document.getElementById('statsYear').addEventListener('change',renderStats);
+    document.getElementById('exportBackupBtn').addEventListener('click',exportBackup);
+    document.getElementById('importBackupBtn').addEventListener('click',()=>document.getElementById('backupFileInput').click());
+    document.getElementById('backupFileInput').addEventListener('change',e=>{ importBackupFile(e.target.files[0]); e.target.value=''; });
+    document.getElementById('clearAllDataBtn').addEventListener('click',clearAllData);
+
+
+
+    document.getElementById('closeCalendarBtn')?.addEventListener('click',closePersonAttendanceCalendar);
+    document.getElementById('calendarCloseBottomBtn')?.addEventListener('click',closePersonAttendanceCalendar);
+    document.getElementById('attendanceCalendarModal')?.addEventListener('click',e=>{ if(e.target.id==='attendanceCalendarModal') closePersonAttendanceCalendar(); });
+    document.getElementById('calendarEditBtn')?.addEventListener('click',()=>{
+      if(!calendarEditMode){
+        if(!confirm('기존 출석 기록이 변경될 수 있습니다. 엑셀 기록과 비교하여 정확히 입력해 주세요.\n\n수정 모드를 시작할까요?')) return;
+        calendarEditMode=true;
+      }else{
+        calendarEditMode=false;
+      }
+      renderPersonCalendar();
+    });
+    document.getElementById('calendarYear')?.addEventListener('change',renderPersonCalendar);
+    document.getElementById('calendarFirstHalfBtn')?.addEventListener('click',()=>{ calendarHalf=1; renderPersonCalendar(); });
+    document.getElementById('calendarSecondHalfBtn')?.addEventListener('click',()=>{ calendarHalf=2; renderPersonCalendar(); });
+
+    fillSelectors();
+    document.getElementById('newRegisteredAt').value=todayISO();
+    toggleNewDateField(false);
+    renderAll();
+  </script>
+</body>
+</html>
