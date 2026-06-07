@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>아나블레포 출석부</title>
-  <!-- v1.1.0 firebase-sync: Google 로그인 + Firestore 공동 저장 연결 -->
+  <!-- v1.2.0 firebase-auth-lock: 로그인 전/미승인 계정 데이터 잠금 -->
   <style>
     :root{
       --bg:#f4f7fb;
@@ -57,6 +57,8 @@
     .hint{font-size:12px;color:var(--muted);line-height:1.5;margin-top:8px}
     .warning-hint{margin-top:8px;padding:10px 12px;border-radius:12px;border:1px solid #fde68a;background:#fffbeb;color:#92400e;font-size:12px;font-weight:800;line-height:1.5}
     .backup-meta-row{margin-top:12px;padding:12px 14px;border-radius:14px;background:#f8fafc;border:1px solid var(--line);color:var(--muted);font-size:12px;font-weight:800;line-height:1.7}
+    .auth-lock-card{background:#111827;color:#fff;border-radius:18px;padding:16px;margin-bottom:14px;box-shadow:var(--shadow)}
+    .auth-lock-card .title{color:#fff;margin-bottom:8px}.auth-lock-card .sub{color:#d1d5db;margin:0 0 12px}.auth-lock-card .btn{background:#2563eb}.tab.locked{opacity:.45;filter:grayscale(1)}.tab:disabled{cursor:not-allowed}
     .split-list{display:grid;grid-template-columns:1fr 1fr;gap:12px}
     .gender-box{border:1px solid var(--line);border-radius:16px;background:#fff;overflow:hidden}
     .gender-head{position:static;background:#f8fafc;border-bottom:1px solid var(--line);padding:11px 12px;font-weight:900;display:flex;justify-content:space-between;align-items:center;font-size:14px;z-index:5}
@@ -371,6 +373,11 @@
       </section>
 
       <section id="backup" class="page">
+        <div id="authLockNotice" class="auth-lock-card">
+          <h2 class="title">로그인이 필요합니다</h2>
+          <p class="sub" id="authLockText">승인된 Google 계정으로 로그인해야 출석부 내용을 볼 수 있습니다. 로그인 전에는 기기 안에 남아 있던 데이터도 표시하지 않습니다.</p>
+          <button class="btn" id="authLockLoginBtn" type="button">Google 로그인</button>
+        </div>
         <div class="card">
           <h2 class="title">설정 / 백업</h2>
           <p class="sub">현재 휴대폰 브라우저에 저장된 등록 명단과 출석 기록을 파일로 백업하거나, 저장해둔 백업 파일을 다시 불러올 수 있습니다.</p>
@@ -465,9 +472,12 @@
     const STORAGE_KEY = 'attendanceAppV1';
     const BACKUP_META_KEY = 'attendanceAppBackupMetaV1';
     const now = new Date();
-    let state = loadState();
+    const EMPTY_STATE = { people: [], sessions: {} };
+    let localStateCache = loadState();
+    let state = { people: [], sessions: {} };
     let backupMeta = loadBackupMeta();
     let currentUser = null;
+    let appUnlocked = false;
     let cloudUnsubscribe = null;
     let applyingCloudState = false;
     let cloudSaveTimer = null;
@@ -506,12 +516,31 @@
       return `${d.getFullYear()}.${pad(d.getMonth()+1)}.${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
     }
     function saveState(){
+      if(!appUnlocked){
+        renderAll();
+        return;
+      }
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      localStateCache = state;
       renderAll();
       scheduleCloudSave();
     }
+    function makeEmptyState(){ return { people: [], sessions: {} }; }
+    function hasData(data){ return !!(data && ((Array.isArray(data.people) && data.people.length) || (data.sessions && Object.keys(data.sessions).length))); }
     function cloudHasLocalData(){
-      return !!((state.people && state.people.length) || (state.sessions && Object.keys(state.sessions).length));
+      return hasData(state) || hasData(localStateCache);
+    }
+    function lockApp(message){
+      appUnlocked=false;
+      state=makeEmptyState();
+      selectedStatsMonth=null;
+      selectedHistoryMonth=null;
+      if(message) toast(message);
+      renderAll();
+    }
+    function unlockApp(){
+      appUnlocked=true;
+      renderAll();
     }
     function renderCloudStatus(){
       const dot=document.getElementById('cloudDot');
@@ -520,19 +549,37 @@
       const logoutBtn=document.getElementById('firebaseLogoutBtn');
       const uploadBtn=document.getElementById('cloudUploadBtn');
       const reloadBtn=document.getElementById('cloudReloadBtn');
+      const notice=document.getElementById('authLockNotice');
+      const noticeText=document.getElementById('authLockText');
       if(!dot || !textEl) return;
-      if(currentUser){
+      if(currentUser && appUnlocked){
         dot.className='cloud-dot on';
         const loaded = cloudLastLoadedAt ? ` · 불러옴 ${formatDateTimeText(cloudLastLoadedAt)}` : '';
         const saved = cloudLastSavedAt ? ` · 저장 ${formatDateTimeText(cloudLastSavedAt)}` : '';
         textEl.textContent = `${currentUser.email} 계정으로 연결됨${loaded}${saved}`;
+        if(notice) notice.style.display='none';
         if(loginBtn) loginBtn.style.display='none';
         if(logoutBtn) logoutBtn.style.display='block';
         if(uploadBtn) uploadBtn.disabled=false;
         if(reloadBtn) reloadBtn.disabled=false;
+      }else if(currentUser && !appUnlocked){
+        dot.className='cloud-dot off';
+        textEl.textContent=`${currentUser.email} 계정은 아직 승인되지 않았거나 권한 확인에 실패했습니다.`;
+        if(notice){
+          notice.style.display='block';
+          if(noticeText) noticeText.textContent='승인되지 않은 계정입니다. 관리자에게 이메일 추가를 요청해 주세요. 출석부 데이터는 표시되지 않습니다.';
+        }
+        if(loginBtn) loginBtn.style.display='none';
+        if(logoutBtn) logoutBtn.style.display='block';
+        if(uploadBtn) uploadBtn.disabled=true;
+        if(reloadBtn) reloadBtn.disabled=true;
       }else{
         dot.className='cloud-dot off';
         textEl.textContent='Google 로그인 후 여러 기기에서 같은 출석부를 사용할 수 있습니다.';
+        if(notice){
+          notice.style.display='block';
+          if(noticeText) noticeText.textContent='승인된 Google 계정으로 로그인해야 출석부 내용을 볼 수 있습니다. 로그인 전에는 기기 안에 남아 있던 데이터도 표시하지 않습니다.';
+        }
         if(loginBtn) loginBtn.style.display='block';
         if(logoutBtn) logoutBtn.style.display='none';
         if(uploadBtn) uploadBtn.disabled=true;
@@ -550,12 +597,12 @@
       };
     }
     function scheduleCloudSave(){
-      if(applyingCloudState || !currentUser) return;
+      if(applyingCloudState || !currentUser || !appUnlocked) return;
       clearTimeout(cloudSaveTimer);
       cloudSaveTimer=setTimeout(()=>saveCloudNow(false),700);
     }
     async function saveCloudNow(showMessage=true){
-      if(!currentUser){ if(showMessage) toast('먼저 Google 로그인해 주세요.'); return; }
+      if(!currentUser || !appUnlocked){ if(showMessage) toast('승인된 계정으로 로그인해 주세요.'); return; }
       try{
         await setDoc(CLOUD_DOC_REF, cloudPayload(), {merge:true});
         cloudLastSavedAt=new Date().toISOString();
@@ -572,8 +619,8 @@
       if(!nextState) return;
       applyingCloudState=true;
       state=nextState;
+      if(appUnlocked){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); localStateCache=state; }
       backupMeta = data.backupMeta ? { lastExportedAt:data.backupMeta.lastExportedAt || '', lastImportedAt:data.backupMeta.lastImportedAt || '' } : backupMeta;
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
       saveBackupMeta();
       selectedStatsMonth=null;
       selectedHistoryMonth=null;
@@ -582,7 +629,7 @@
       applyingCloudState=false;
     }
     async function reloadCloudNow(showMessage=true){
-      if(!currentUser){ if(showMessage) toast('먼저 Google 로그인해 주세요.'); return; }
+      if(!currentUser || !appUnlocked){ if(showMessage) toast('승인된 계정으로 로그인해 주세요.'); return; }
       try{
         const snap=await getDoc(CLOUD_DOC_REF);
         if(snap.exists()){
@@ -612,7 +659,7 @@
     function startCloudListener(){
       if(cloudUnsubscribe) cloudUnsubscribe();
       cloudUnsubscribe = onSnapshot(CLOUD_DOC_REF, (snap)=>{
-        if(!currentUser) return;
+        if(!currentUser || !appUnlocked) return;
         if(snap.exists()) applyCloudDocument(snap.data());
       }, (err)=>{
         console.error(err);
@@ -623,23 +670,28 @@
       try{ await getRedirectResult(firebaseAuth); }catch(e){ console.warn(e); }
       onAuthStateChanged(firebaseAuth, async (user)=>{
         currentUser=user;
-        renderCloudStatus();
         if(cloudUnsubscribe){ cloudUnsubscribe(); cloudUnsubscribe=null; }
         if(user){
           try{
             const snap=await getDoc(CLOUD_DOC_REF);
+            appUnlocked=true;
             if(snap.exists()){
               applyCloudDocument(snap.data());
-            }else if(cloudHasLocalData()){
+            }else if(hasData(localStateCache)){
+              state=localStateCache;
+              renderAll();
               if(confirm('현재 기기에 저장된 출석부 데이터를 Firebase 클라우드에 처음 저장할까요?')) await saveCloudNow(true);
+            }else{
+              state=makeEmptyState();
+              renderAll();
             }
             startCloudListener();
           }catch(e){
             console.error(e);
-            toast('Firebase 권한 또는 규칙을 확인해 주세요.');
+            lockApp('승인되지 않은 계정이거나 Firebase 규칙에 허용되지 않았습니다.');
           }
         }else{
-          renderAll();
+          lockApp();
         }
       });
     }
@@ -664,6 +716,7 @@
       return `anablepo-attendance-backup-${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}.json`;
     }
     function exportBackup(){
+      if(!appUnlocked){ toast('승인된 계정으로 로그인해 주세요.'); return; }
       const backup={
         app:'anablepo-attendance',
         version:4,
@@ -716,6 +769,7 @@
       return normalized;
     }
     function importBackupFile(file){
+      if(!appUnlocked){ toast('승인된 계정으로 로그인해 주세요.'); return; }
       if(!file) return;
       const reader=new FileReader();
       reader.onload=()=>{
@@ -731,6 +785,7 @@
 진행할까요?`)) return;
           state=nextState;
           localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+          localStateCache=state;
           backupMeta.lastImportedAt = new Date().toISOString();
           saveBackupMeta();
           selectedStatsMonth=null;
@@ -745,11 +800,13 @@
       reader.readAsText(file,'utf-8');
     }
     function clearAllData(){
+      if(!appUnlocked){ toast('승인된 계정으로 로그인해 주세요.'); return; }
       if(!confirm('정말 모든 등록 명단과 출석 기록을 초기화할까요?')) return;
       const word=prompt('전체 데이터를 삭제하려면 아래에 초기화 라고 입력해 주세요.');
       if(word !== '초기화'){ toast('초기화를 취소했습니다.'); return; }
       state={ people:[], sessions:{} };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      localStateCache=state;
       selectedStatsMonth=null;
       selectedHistoryMonth=null;
       resetForm();
@@ -897,11 +954,25 @@
     }
     function getWeekOfMonth(d){ return Math.min(5, Math.ceil(d.getDate()/7)); }
 
+    function updateAuthLockUI(){
+      const locked=!appUnlocked;
+      document.querySelectorAll('.tab').forEach(t=>{
+        const isBackup=t.dataset.page==='backup';
+        t.disabled=locked && !isBackup;
+        t.classList.toggle('locked',locked && !isBackup);
+      });
+      if(locked && currentPage!=='backup') currentPage='backup';
+      document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.page===currentPage));
+      document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active',p.id===currentPage));
+    }
     function renderAll(){
-      document.getElementById('topTotal').textContent = activePeople().length;
-      renderRoster(); renderCheck(); renderHistory();
-      if(currentPage==='rate') renderRate(false);
-      if(currentPage==='stats') renderStats();
+      updateAuthLockUI();
+      document.getElementById('topTotal').textContent = appUnlocked ? activePeople().length : 0;
+      if(appUnlocked){
+        renderRoster(); renderCheck(); renderHistory();
+        if(currentPage==='rate') renderRate(false);
+        if(currentPage==='stats') renderStats();
+      }
       if(currentPage==='backup') renderBackupSummary();
       renderCloudStatus();
     }
@@ -1689,6 +1760,10 @@
       document.getElementById('formTitle').textContent='이름 등록'; document.getElementById('savePersonBtn').textContent='등록하기';
     }
     function showPage(page){
+      if(!appUnlocked && page!=='backup'){
+        page='backup';
+        toast('승인된 계정으로 로그인해야 사용할 수 있습니다.');
+      }
       currentPage=page;
       document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.page===page));
       document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active',p.id===page));
