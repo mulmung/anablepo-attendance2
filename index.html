@@ -73,6 +73,7 @@
     .badges{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:5px}
     .badge{display:inline-block;width:10px;height:10px;min-width:10px;min-height:10px;aspect-ratio:1/1;flex:0 0 auto;border-radius:999px;padding:0;font-size:0;line-height:0;vertical-align:middle;box-sizing:border-box;box-shadow:inset 0 0 0 1px rgba(15,23,42,.06)}
     .badge.new{background:#22c55e}.badge.married{background:#a855f7}.badge.freshman{background:#f59e0b}.badge.gender-male{background:#2563eb}.badge.gender-female{background:#ef4444}
+    .role-team-badges{display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin-top:4px}.info-badge{display:inline-flex;align-items:center;justify-content:center;border-radius:999px;padding:3px 7px;font-size:10.5px;font-weight:900;line-height:1;white-space:nowrap}.info-badge.role{background:#111827;color:#fff}.info-badge.team{background:#e0f2fe;color:#0369a1;border:1px solid #bae6fd}.rate-person-info .role-team-badges,.roster-person .role-team-badges{margin-top:0}
     .legend{display:flex;flex-wrap:wrap;gap:14px;align-items:center;margin-top:10px;color:var(--muted);font-size:12px;font-weight:800}
     .legend-item{display:inline-flex;align-items:center;gap:6px}
     .legend .badge{width:9px;height:9px;flex:0 0 auto}
@@ -204,6 +205,30 @@
             <label class="choice"><input type="checkbox" id="isNew">새신자</label>
             <label class="choice"><input type="checkbox" id="isMarried">기혼자</label>
           </div>
+          <div class="grid-2" style="margin-top:10px">
+            <div>
+              <label class="label" for="officerRoleInput">임원</label>
+              <select id="officerRoleInput">
+                <option value="">해당 없음</option>
+                <option value="회장">회장</option>
+                <option value="부회장">부회장</option>
+                <option value="총무">총무</option>
+                <option value="서기">서기</option>
+                <option value="회계">회계</option>
+              </select>
+            </div>
+            <div>
+              <label class="label" for="ministryTeamInput">팀</label>
+              <select id="ministryTeamInput">
+                <option value="">해당 없음</option>
+                <option value="어울림팀">어울림팀</option>
+                <option value="웰컴팀">웰컴팀</option>
+                <option value="찬양팀">찬양팀</option>
+                <option value="예배팀">예배팀</option>
+              </select>
+            </div>
+          </div>
+          <div class="hint">임원/팀 배지는 재적 명단과 기간 출석률 결과에서만 표시됩니다.</div>
           <div class="member-basis-wrap">
             <label class="label">재적 기준</label>
             <div class="choice-row">
@@ -751,6 +776,8 @@
         freshmanYear:Number(p.freshmanYear || 0),
         isNew:!!p.isNew,
         isMarried:!!p.isMarried,
+        officerRole:p.officerRole || '',
+        ministryTeam:p.ministryTeam || '',
         newRegisteredAt:p.newRegisteredAt || '',
         newGraduatedAt:p.newGraduatedAt || '',
         membershipStatus:p.membershipStatus || 'active',
@@ -785,7 +812,6 @@
 진행할까요?`)) return;
           state=nextState;
           localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-          localStateCache=state;
           backupMeta.lastImportedAt = new Date().toISOString();
           saveBackupMeta();
           selectedStatsMonth=null;
@@ -806,7 +832,6 @@
       if(word !== '초기화'){ toast('초기화를 취소했습니다.'); return; }
       state={ people:[], sessions:{} };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-      localStateCache=state;
       selectedStatsMonth=null;
       selectedHistoryMonth=null;
       resetForm();
@@ -985,6 +1010,16 @@
       html += '</div>';
       return html;
     }
+    function renderRoleTeamBadges(p){
+      const role=(p.officerRole||'').trim();
+      const team=(p.ministryTeam||'').trim();
+      if(!role && !team) return '';
+      let html='<div class="role-team-badges">';
+      if(role) html += `<span class="info-badge role">${escapeHtml(role)}</span>`;
+      if(team) html += `<span class="info-badge team">${escapeHtml(team)}</span>`;
+      html += '</div>';
+      return html;
+    }
     function isActiveFreshman(p){
       return !!(p && p.isFreshman && Number(p.freshmanYear || 0) === now.getFullYear());
     }
@@ -1036,6 +1071,8 @@
         <div class="detail-grid">
           <div class="detail-item"><div class="detail-label">성별</div><div class="detail-value">${p.gender==='male'?'남자':'여자'}</div></div>
           <div class="detail-item"><div class="detail-label">구분</div><div class="detail-value">${p.isMarried?'기혼자':'-'}</div></div>
+          <div class="detail-item"><div class="detail-label">임원</div><div class="detail-value">${p.officerRole?escapeHtml(p.officerRole):'-'}</div></div>
+          <div class="detail-item"><div class="detail-label">팀</div><div class="detail-value">${p.ministryTeam?escapeHtml(p.ministryTeam):'-'}</div></div>
           <div class="detail-item"><div class="detail-label">신입 여부</div><div class="detail-value">${freshmanStatusLabel(p)}</div></div>
           <div class="detail-item"><div class="detail-label">소속 상태</div><div class="detail-value">${memberChip}</div></div>
           <div class="detail-item"><div class="detail-label">소속 변경일</div><div class="detail-value">${formatDateText(p.membershipChangedAt)}</div></div>
@@ -1050,10 +1087,11 @@
     }
     function personRow(p, options={}){
       const badges = renderBadges(p);
+      const roleTeamBadges = renderRoleTeamBadges(p);
       const note = (p.note||'').trim();
       const noteHtml = note ? `<div class="person-note">${escapeHtml(note)}</div>` : '';
       if(options.mode==='roster'){
-        return `<div class="person roster-person"><div class="roster-top"><div class="person-main"><span class="person-name">${escapeHtml(p.name)}</span>${badges}${noteHtml}</div><div class="actions"><button class="icon-btn" onclick="togglePersonDetail('${p.id}')">상세</button><button class="icon-btn del" onclick="deletePerson('${p.id}')">삭제</button></div></div>${personDetailHtml(p)}</div>`;
+        return `<div class="person roster-person"><div class="roster-top"><div class="person-main"><span class="person-name">${escapeHtml(p.name)}</span>${badges}${roleTeamBadges}${noteHtml}</div><div class="actions"><button class="icon-btn" onclick="togglePersonDetail('${p.id}')">상세</button><button class="icon-btn del" onclick="deletePerson('${p.id}')">삭제</button></div></div>${personDetailHtml(p)}</div>`;
       }
       if(options.mode==='check'){
         const key = selectedKey('check');
@@ -1229,7 +1267,7 @@
       if(sort==='desc') rows.sort((a,b)=>(b.rate-a.rate) || a.p.name.localeCompare(b.p.name,'ko'));
       else if(sort==='asc') rows.sort((a,b)=>(a.rate-b.rate) || a.p.name.localeCompare(b.p.name,'ko'));
       else rows.sort((a,b)=>a.p.name.localeCompare(b.p.name,'ko'));
-      const makeRateRow=(r)=>`<div class="rate-person roster-person"><div class="rate-person-top"><div class="rate-person-info"><span class="rate-person-name">${escapeHtml(r.p.name)}</span>${renderBadges(r.p)}</div><div class="rate-person-stat">${r.attended}/${r.total}회</div></div><div class="rate-status-line">현장 ${r.onsite} · 온라인 ${r.online} · 계산 주차 ${r.total}</div><div class="rate-percent"><div class="rate-percent-row"><strong>${r.rate}%</strong><div class="bar-wrap" style="flex:1"><div class="bar" style="width:${r.rate}%"></div></div></div></div></div>`;
+      const makeRateRow=(r)=>`<div class="rate-person roster-person"><div class="rate-person-top"><div class="rate-person-info"><span class="rate-person-name">${escapeHtml(r.p.name)}</span>${renderBadges(r.p)}${renderRoleTeamBadges(r.p)}</div><div class="rate-person-stat">${r.attended}/${r.total}회</div></div><div class="rate-status-line">현장 ${r.onsite} · 온라인 ${r.online} · 계산 주차 ${r.total}</div><div class="rate-percent"><div class="rate-percent-row"><strong>${r.rate}%</strong><div class="bar-wrap" style="flex:1"><div class="bar" style="width:${r.rate}%"></div></div></div></div></div>`;
       const filterTotal=allRows.length;
       box.innerHTML=`<div class="card"><h2 class="title">출석률 결과</h2><p class="sub">기준 기록 ${sessions.length}개 · ${rateFilterLabel(filter)} ${rows.length}명 / 전체 ${filterTotal}명</p><div class="roster-list"><div class="roster-list-head"><span>${rateFilterLabel(filter)}</span><span>${sort==='desc'?'출석률 높은순':(sort==='asc'?'출석률 낮은순':'ㄱㄴㄷ순')}</span></div>${rows.length?rows.map(makeRateRow).join(''):'<div class="empty">조건에 맞는 명단이 없습니다.</div>'}</div></div>`;
     }
@@ -1656,6 +1694,8 @@
       }
       toggleNewDateField(false);
       document.getElementById('isMarried').checked=!!p.isMarried;
+      document.getElementById('officerRoleInput').value=p.officerRole||'';
+      document.getElementById('ministryTeamInput').value=p.ministryTeam||'';
       document.getElementById('formTitle').textContent='인원 수정';
       document.getElementById('savePersonBtn').textContent='수정 완료';
       showPage('register');
@@ -1757,6 +1797,8 @@
       const existingBasis=document.querySelector('input[name="membershipBasis"][value="existing"]'); if(existingBasis){ existingBasis.disabled=false; existingBasis.checked=true; const label=existingBasis.closest('.choice'); if(label) label.classList.remove('locked'); }
       const membershipStartInput=document.getElementById('membershipStartAtInput'); if(membershipStartInput) membershipStartInput.value=todayISO(); toggleMembershipStartField();
       document.getElementById('isFreshman').checked=false; document.getElementById('isNew').checked=false; document.getElementById('newRegisteredAt').value=todayISO(); toggleNewDateField(false); document.getElementById('isMarried').checked=false;
+      document.getElementById('officerRoleInput').value='';
+      document.getElementById('ministryTeamInput').value='';
       document.getElementById('formTitle').textContent='이름 등록'; document.getElementById('savePersonBtn').textContent='등록하기';
     }
     function showPage(page){
@@ -1813,6 +1855,8 @@
         freshmanYear:isFreshmanChecked ? (previousFreshmanYear || now.getFullYear()) : 0,
         isNew:isNewChecked,
         isMarried:document.getElementById('isMarried').checked,
+        officerRole:document.getElementById('officerRoleInput').value || '',
+        ministryTeam:document.getElementById('ministryTeamInput').value || '',
         newRegisteredAt:isNewChecked ? (document.getElementById('newRegisteredAt').value || todayISO()) : (previousGraduatedAt ? previousRegisteredAt : ''),
         newGraduatedAt:isNewChecked ? '' : previousGraduatedAt,
         membershipStatus:previousMembershipStatus,
