@@ -205,30 +205,24 @@
             <label class="choice"><input type="checkbox" id="isNew">새신자</label>
             <label class="choice"><input type="checkbox" id="isMarried">기혼자</label>
           </div>
-          <div class="grid-2" style="margin-top:10px">
-            <div>
-              <label class="label" for="officerRoleInput">임원</label>
-              <select id="officerRoleInput">
-                <option value="">해당 없음</option>
-                <option value="회장">회장</option>
-                <option value="부회장">부회장</option>
-                <option value="총무">총무</option>
-                <option value="서기">서기</option>
-                <option value="회계">회계</option>
-              </select>
-            </div>
-            <div>
-              <label class="label" for="ministryTeamInput">팀</label>
-              <select id="ministryTeamInput">
-                <option value="">해당 없음</option>
-                <option value="어울림팀">어울림팀</option>
-                <option value="웰컴팀">웰컴팀</option>
-                <option value="찬양팀">찬양팀</option>
-                <option value="예배팀">예배팀</option>
-              </select>
-            </div>
+          <label class="label">임원</label>
+          <div class="choice-row role-choice-row">
+            <label class="choice"><input type="radio" name="officerRole" value="" checked>해당 없음</label>
+            <label class="choice"><input type="radio" name="officerRole" value="회장">회장</label>
+            <label class="choice"><input type="radio" name="officerRole" value="부회장">부회장</label>
+            <label class="choice"><input type="radio" name="officerRole" value="총무">총무</label>
+            <label class="choice"><input type="radio" name="officerRole" value="서기">서기</label>
+            <label class="choice"><input type="radio" name="officerRole" value="회계">회계</label>
           </div>
-          <div class="hint">임원/팀 배지는 재적 명단과 기간 출석률 결과에서만 표시됩니다.</div>
+          <div class="hint">임원은 한 명당 하나만 선택할 수 있습니다.</div>
+          <label class="label">팀</label>
+          <div class="choice-row team-choice-row">
+            <label class="choice"><input type="checkbox" name="ministryTeam" value="어울림팀">어울림팀</label>
+            <label class="choice"><input type="checkbox" name="ministryTeam" value="웰컴팀">웰컴팀</label>
+            <label class="choice"><input type="checkbox" name="ministryTeam" value="찬양팀">찬양팀</label>
+            <label class="choice"><input type="checkbox" name="ministryTeam" value="예배팀">예배팀</label>
+          </div>
+          <div class="hint">팀은 겸직이 가능하며, 임원/팀 배지는 재적 명단과 기간 출석률 결과에서만 표시됩니다.</div>
           <div class="member-basis-wrap">
             <label class="label">재적 기준</label>
             <div class="choice-row">
@@ -777,7 +771,8 @@
         isNew:!!p.isNew,
         isMarried:!!p.isMarried,
         officerRole:p.officerRole || '',
-        ministryTeam:p.ministryTeam || '',
+        ministryTeams:normalizeTeamsValue(p.ministryTeams || p.ministryTeam || ''),
+        ministryTeam:normalizeTeamsValue(p.ministryTeams || p.ministryTeam || '').join(', '),
         newRegisteredAt:p.newRegisteredAt || '',
         newGraduatedAt:p.newGraduatedAt || '',
         membershipStatus:p.membershipStatus || 'active',
@@ -1010,13 +1005,33 @@
       html += '</div>';
       return html;
     }
+    function normalizeTeamsValue(value){
+      if(Array.isArray(value)) return value.map(v=>String(v||'').trim()).filter(Boolean);
+      return String(value||'').split(',').map(v=>v.trim()).filter(Boolean);
+    }
+    function getSelectedOfficerRole(){
+      const checked=document.querySelector('input[name="officerRole"]:checked');
+      return checked ? checked.value : '';
+    }
+    function setSelectedOfficerRole(value){
+      const safe=String(value||'');
+      const target=document.querySelector(`input[name="officerRole"][value="${CSS.escape(safe)}"]`) || document.querySelector('input[name="officerRole"][value=""]');
+      if(target) target.checked=true;
+    }
+    function getSelectedMinistryTeams(){
+      return Array.from(document.querySelectorAll('input[name="ministryTeam"]:checked')).map(input=>input.value);
+    }
+    function setSelectedMinistryTeams(value){
+      const teams=new Set(normalizeTeamsValue(value));
+      document.querySelectorAll('input[name="ministryTeam"]').forEach(input=>{ input.checked=teams.has(input.value); });
+    }
     function renderRoleTeamBadges(p){
       const role=(p.officerRole||'').trim();
-      const team=(p.ministryTeam||'').trim();
-      if(!role && !team) return '';
+      const teams=normalizeTeamsValue(p.ministryTeams || p.ministryTeam || '');
+      if(!role && !teams.length) return '';
       let html='<div class="role-team-badges">';
       if(role) html += `<span class="info-badge role">${escapeHtml(role)}</span>`;
-      if(team) html += `<span class="info-badge team">${escapeHtml(team)}</span>`;
+      teams.forEach(team=>{ html += `<span class="info-badge team">${escapeHtml(team)}</span>`; });
       html += '</div>';
       return html;
     }
@@ -1072,7 +1087,7 @@
           <div class="detail-item"><div class="detail-label">성별</div><div class="detail-value">${p.gender==='male'?'남자':'여자'}</div></div>
           <div class="detail-item"><div class="detail-label">구분</div><div class="detail-value">${p.isMarried?'기혼자':'-'}</div></div>
           <div class="detail-item"><div class="detail-label">임원</div><div class="detail-value">${p.officerRole?escapeHtml(p.officerRole):'-'}</div></div>
-          <div class="detail-item"><div class="detail-label">팀</div><div class="detail-value">${p.ministryTeam?escapeHtml(p.ministryTeam):'-'}</div></div>
+          <div class="detail-item"><div class="detail-label">팀</div><div class="detail-value">${normalizeTeamsValue(p.ministryTeams || p.ministryTeam || '').length?escapeHtml(normalizeTeamsValue(p.ministryTeams || p.ministryTeam || '').join(', ')):'-'}</div></div>
           <div class="detail-item"><div class="detail-label">신입 여부</div><div class="detail-value">${freshmanStatusLabel(p)}</div></div>
           <div class="detail-item"><div class="detail-label">소속 상태</div><div class="detail-value">${memberChip}</div></div>
           <div class="detail-item"><div class="detail-label">소속 변경일</div><div class="detail-value">${formatDateText(p.membershipChangedAt)}</div></div>
@@ -1694,8 +1709,8 @@
       }
       toggleNewDateField(false);
       document.getElementById('isMarried').checked=!!p.isMarried;
-      document.getElementById('officerRoleInput').value=p.officerRole||'';
-      document.getElementById('ministryTeamInput').value=p.ministryTeam||'';
+      setSelectedOfficerRole(p.officerRole||'');
+      setSelectedMinistryTeams(p.ministryTeams || p.ministryTeam || '');
       document.getElementById('formTitle').textContent='인원 수정';
       document.getElementById('savePersonBtn').textContent='수정 완료';
       showPage('register');
@@ -1797,8 +1812,8 @@
       const existingBasis=document.querySelector('input[name="membershipBasis"][value="existing"]'); if(existingBasis){ existingBasis.disabled=false; existingBasis.checked=true; const label=existingBasis.closest('.choice'); if(label) label.classList.remove('locked'); }
       const membershipStartInput=document.getElementById('membershipStartAtInput'); if(membershipStartInput) membershipStartInput.value=todayISO(); toggleMembershipStartField();
       document.getElementById('isFreshman').checked=false; document.getElementById('isNew').checked=false; document.getElementById('newRegisteredAt').value=todayISO(); toggleNewDateField(false); document.getElementById('isMarried').checked=false;
-      document.getElementById('officerRoleInput').value='';
-      document.getElementById('ministryTeamInput').value='';
+      setSelectedOfficerRole('');
+      setSelectedMinistryTeams([]);
       document.getElementById('formTitle').textContent='이름 등록'; document.getElementById('savePersonBtn').textContent='등록하기';
     }
     function showPage(page){
@@ -1855,8 +1870,9 @@
         freshmanYear:isFreshmanChecked ? (previousFreshmanYear || now.getFullYear()) : 0,
         isNew:isNewChecked,
         isMarried:document.getElementById('isMarried').checked,
-        officerRole:document.getElementById('officerRoleInput').value || '',
-        ministryTeam:document.getElementById('ministryTeamInput').value || '',
+        officerRole:getSelectedOfficerRole(),
+        ministryTeams:getSelectedMinistryTeams(),
+        ministryTeam:getSelectedMinistryTeams().join(', '),
         newRegisteredAt:isNewChecked ? (document.getElementById('newRegisteredAt').value || todayISO()) : (previousGraduatedAt ? previousRegisteredAt : ''),
         newGraduatedAt:isNewChecked ? '' : previousGraduatedAt,
         membershipStatus:previousMembershipStatus,
